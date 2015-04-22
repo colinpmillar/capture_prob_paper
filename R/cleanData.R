@@ -87,12 +87,19 @@ ef $ keep <-
                  #!barrier
             )
 
-length(unique(ef $ Site_OBJECTID))
-length(unique(paste(ef $ Site_OBJECTID, ef$Date)))
-
-
 save(ef, file = "rData/modelData.rData")
 }
 
 # some data summaries
 
+length(unique(ef $ Site_OBJECTID))
+length(unique(paste(ef $ Site_OBJECTID, ef$Date)))
+
+
+length(unique(ef $ DESCRIPTIO))
+length(unique(ef $ CATCH_ID))
+
+table(ef $ year)
+
+table(ef $ Runs)
+table(ef $ Runs)/nrow(ef)*100
