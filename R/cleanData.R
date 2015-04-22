@@ -4,7 +4,7 @@
 library(CLdata)
 
 if (Sys.info()["user"] == "millaco") {
-  setwd("~/work/SMFS-report")    
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
 } else 
 if (Sys.info()["user"] == "millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
