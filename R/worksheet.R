@@ -17,128 +17,24 @@ library(CLmodel)
 library(Rcpp)
 library(rstan)
 
+source("R/penalisedSmooth.R")
+
 wk <- subset(ef, Species == "Salmon" & LifeStage == "Fry" & CATCH_ID == 1)
-
-formula <- Z ~ s(year)
-data <- wk
-passes <- "Runs"
-lambda <- 1
-
-hessian = TRUE
-verbose = TRUE
-init = "0"
-
-g <- gam(formula, data = wk, fit = FALSE)
+wk <- subset(wk, T > 0)
 
 
+logLik(test(exp(1)))
+logLik(test(exp(2)))
+logLik(test(exp(3)))
+logLik(test(exp(4)))
 
+coef(test(exp(1)))
 
-  if (!exists("stanmod2")) {
-    message("Building optimiser for first use...")
-    stanmod2 <- rstan::stan_model(model_code = "
-      data {
-        int<lower=0> N; // number of observations
-        int<lower=0> K; // number of parameters
-        real S[N]; // the number of fishing passes
-        real R[N]; // Zippins R (see seber p 312, eq 7.22)
-        real T[N]; // total catches
-        matrix[N,K] A; // model matrix
-        matrix[K,K] Q; // penalty matrix
-      }
-      parameters {
-        vector[K] alpha;
-      } 
-      model {
-        vector[N] expeta;
-        vector[N] p;
-        expeta <- exp(A * alpha);
-        p <- expeta ./ (1.0 + expeta);
-        for (i in 1:N) {
-          increment_log_prob(T[i] * log(p[i]));
-          increment_log_prob(T[i] * R[i] * log(1-p[i]));
-          increment_log_prob(-T[i] * log(1 - (1-p[i])^S[i]) );
-        }
-        increment_log_prob(-1.0 * quad_form(Q, alpha));
-      }")
-    assign("stanmod2", stanmod2, .GlobalEnv)
-  }
+X <- test(1) $ G
 
-  if (is.null(data)) stop("must supply data")
-  data0 <- subset(data, T > 0)
+plot(wk $ year, X %*% coef(test(exp(1))), pch = 16, col = 1)
 
-  if (is.null(passes)) stop("must supply the number of fishing runs")
-  data0 $ S <- data0[[passes]]
-
-  # set up model
-  if (nrow(data0) == 1) {
-    G <- matrix(1, 1, 1)
-  } else {
-    Gsetup <- gam(formula, data = data0, fit = FALSE)
-    G <- Gsetup $ X
-  }
-
-  # remove redundant / collinear parameters
-  qr.G <- qr(G)
-  rank.deficient <- qr.G $ pivot[abs(diag(qr.G $ qr)) < 1e-7]
-  if (length(rank.deficient)) {
-    droppar <- paste(colnames(G)[rank.deficient], collapse = "\n\t")
-    warning("*** Model has ", length(rank.deficient)," too many parameter(s)!!\n    i will remove the redundant ones:\n\t", droppar, call. = FALSE)
-    Gfit <- G[,-rank.deficient]
-  } else {
-    Gfit <- G
-  }
-
-  # build up penalty matrix
-  ## for now make it the zero matrix for unpenalised
-  Q <- matrix(0, ncol(Gfit), ncol(Gfit))
-  Q[-1,-1] <- lambda * Gsetup $ S[[1]]
-  
-  standat <- 
-    list(N = nrow(Gfit), K = ncol(Gfit), 
-         S = data0 $ S, T = data0 $ T, R = with(data0, S - 1 - Z),
-         A = Gfit, 
-         Q = Q)
-
-  if (!verbose) {
-    tmp <- 
-      capture.output(
-        opt <- rstan::optimizing(stanmod2, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
-      )
-  } else {
-    opt <- rstan::optimizing(stanmod2, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
-  } 
-
-  opt $ formula <- formula # for printing and summary
-  opt $ llik <- opt $ value
-  opt $ terms <- Gsetup $ terms
-  opt $ call <- match.call()
-  opt $ aic <- -2 * opt $ llik + 2 * ncol(Gfit)
-  opt $ G <- G
-  opt $ Gfit <- Gfit
-  opt $ coefficients <- opt $ par
-  names(opt $ coefficients) <- colnames(Gfit)
-  opt $ df.null <- nrow(G)
-  opt $ df.residual <- nrow(G) - ncol(Gfit)
-  opt $ rank <- ncol(Gfit)
-  opt $ fitted <- p <- transpar(opt $ par, Gfit)
-  opt $ residuals <- rep(0, nrow(data0))
-  opt $ null.deviance <- NA
-  opt $ deviance <- NA 
-  opt $ family <- binomial()
-  opt $ Vb <- if (hessian) try(solve(-1 * opt $ hessian)) else NULL
-  opt $ Gsetup <- Gsetup
-
-  # get a gam container
-  # g1 <- gam(G = Gsetup)
-  # g1 $ coefficients[] <- opt $ par       
-  # g1 $ Vp[] <- opt $ Vb
-  # g1 $ family <- binomial()
-  # X <- predict(g1, type = "lpmatrix")
-  # g1 $ linear.predictors <-  c(X %*% g1 $ coef)
-  # g1 $ fitted.values <- c(1/(1 + exp(-g1 $ linear.predictors)))
-  # g1 $ aic <- opt $ aic
-
-  class(opt) <- c("efp", "glm", "lm")
-
-
+points(wk $ year, X %*% coef(test(exp(2))), pch = 16, col = 2)
+points(wk $ year, X %*% coef(test(exp(3))), pch = 16, col = 3)
+points(wk $ year, X %*% coef(test(exp(15))), pch = 16, col = 4)
 

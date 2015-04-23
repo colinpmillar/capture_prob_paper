@@ -1,47 +1,41 @@
+test <- function(lambda) {
 
-library(CLmodel)
+  formula <- Z ~ s(year)
+  data <- wk
+  passes <- "Runs"
 
+  hessian = TRUE
+  verbose = TRUE
+  init = "0"
 
-#' Estimate capture probabilites from electrofishing data
-#'
-#' This function uses the marginal likelihood of capture probabilities
-#' to estimate model parameters 
-#' 
-#'
-#' @param formula a formula object
-#' @param data a data.frame containing all relavent info
-#' @return glm type object
-#' @export
-#' @examples
-#' # none yet
-efp <- function(formula, data = NULL, passes = NULL, verbose=TRUE, init = "0", hessian = FALSE) {
-
-  if (!exists("stanmod")) {
+  if (!exists("stanmod2")) {
     message("Building optimiser for first use...")
-    stanmod <- rstan::stan_model(model_code = "
+    stanmod2 <- rstan::stan_model(model_code = "
       data {
         int<lower=0> N; // number of observations
         int<lower=0> K; // number of parameters
         real S[N]; // the number of fishing passes
         real R[N]; // Zippins R (see seber p 312, eq 7.22)
         real T[N]; // total catches
-        matrix[N,K] A;
+        matrix[N,K] A; // model matrix
+        matrix[K,K] Q; // penalty matrix
       }
       parameters {
         vector[K] alpha;
       } 
       model {
         vector[N] expeta;
+        vector[N] p;
         expeta <- exp(A * alpha);
+        p <- expeta ./ (1.0 + expeta);
         for (i in 1:N) {
-          real p;
-          p <- expeta[i]/(1.0 + expeta[i]);
-          increment_log_prob(T[i] * log(p));
-          increment_log_prob(T[i] * R[i] * log(1-p));
-          increment_log_prob(-T[i] * log(1 - (1-p)^S[i]) );
+          increment_log_prob(T[i] * log(p[i]));
+          increment_log_prob(T[i] * R[i] * log(1-p[i]));
+          increment_log_prob(-T[i] * log(1 - (1-p[i])^S[i]) );
         }
+        increment_log_prob(-1.0 * quad_form(Q, alpha));
       }")
-    assign("stanmod", stanmod, .GlobalEnv)
+    assign("stanmod2", stanmod2, .GlobalEnv)
   }
 
   if (is.null(data)) stop("must supply data")
@@ -69,18 +63,24 @@ efp <- function(formula, data = NULL, passes = NULL, verbose=TRUE, init = "0", h
     Gfit <- G
   }
 
-
+  # build up penalty matrix
+  ## for now make it the zero matrix for unpenalised
+  Q <- matrix(0, ncol(Gfit), ncol(Gfit))
+  Q[-1,-1] <- lambda * Gsetup $ S[[1]]
+  
   standat <- 
     list(N = nrow(Gfit), K = ncol(Gfit), 
          S = data0 $ S, T = data0 $ T, R = with(data0, S - 1 - Z),
-         A = Gfit)
+         A = Gfit, 
+         Q = Q)
+
   if (!verbose) {
     tmp <- 
       capture.output(
-        opt <- rstan::optimizing(stanmod, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
+        opt <- rstan::optimizing(stanmod2, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
       )
   } else {
-    opt <- rstan::optimizing(stanmod, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
+    opt <- rstan::optimizing(stanmod2, data = standat, algorith = "BFGS", hessian = hessian, verbose = verbose, init = init)
   } 
 
   opt $ formula <- formula # for printing and summary
