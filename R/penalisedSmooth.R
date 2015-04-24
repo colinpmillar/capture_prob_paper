@@ -1,13 +1,9 @@
-test <- function(lambda) {
 
-  formula <- Z ~ s(year)
-  data <- wk
-  passes <- "Runs"
+test <- function(formula = Z ~ s(year) + s(doy), lambda, 
+                 data = wk, passes = "Runs", 
+                 hessian = TRUE, verbose = TRUE, init = "0") {
 
-  hessian = TRUE
-  verbose = TRUE
-  init = "0"
-
+  
   if (!exists("stanmod2")) {
     message("Building optimiser for first use...")
     stanmod2 <- rstan::stan_model(model_code = "
@@ -66,7 +62,12 @@ test <- function(lambda) {
   # build up penalty matrix
   ## for now make it the zero matrix for unpenalised
   Q <- matrix(0, ncol(Gfit), ncol(Gfit))
-  Q[-1,-1] <- lambda * Gsetup $ S[[1]]
+  nsmooth <- length(Gsetup $ S)
+  if (length(lambda) != nsmooth) stop("lambda needs to be", nsmooth, "in length!")
+  for (i in 1:nsmooth) {
+    ind <- Gsetup $ smooth[[i]] $ first.para:Gsetup $ smooth[[i]] $ last.para
+    Q[ind,ind] <- lambda[i] * Gsetup $ S[[i]]
+  }  
   
   standat <- 
     list(N = nrow(Gfit), K = ncol(Gfit), 
@@ -103,6 +104,9 @@ test <- function(lambda) {
   opt $ Vb <- if (hessian) try(solve(-1 * opt $ hessian)) else NULL
   opt $ Gsetup <- Gsetup
 
+  # calculate effetive degrees of freedom
+  
+
   # get a gam container
   # g1 <- gam(G = Gsetup)
   # g1 $ coefficients[] <- opt $ par       
@@ -116,4 +120,27 @@ test <- function(lambda) {
   class(opt) <- c("efp", "glm", "lm")
   opt
 }
+
+
+# predict p for data
+predictX <- function(mod, newdata) {
+  g1 <- gam(G = mod $ Gsetup)
+  qr.G <- qr(mod $ G)
+  rank.deficient <- qr.G $ pivot[abs(diag(qr.G $ qr)) < 1e-7]
+  whichkeep <- -rank.deficient
+  if (!length(whichkeep)) whichkeep <- 1:length(mod $ coefficients) 
+  names(g1 $ coefficients[-1 * whichkeep])
+  g1 $ coefficients[] <- 0
+  g1 $ coefficients[whichkeep] <- mod $ coefficients       
+  g1 $ Vp[] <- 0
+  diag(g1 $ Vp[]) <- 1e-5
+  g1 $ Vp[whichkeep, whichkeep] <- mod $ Vb
+  g1 $ family <- binomial()
+
+  predict(g1, type = "lpmatrix", newdata = newdata)
+}
+
+
+
+
 
