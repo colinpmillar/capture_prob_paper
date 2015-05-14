@@ -17,7 +17,7 @@ if (Sys.info()["user"] == "millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("C:/work/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
 
 
@@ -76,7 +76,7 @@ if (Sys.info()["user"] == "millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("C:/work/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
 
 
@@ -99,23 +99,24 @@ library(rstan)
 
 library(devtools)
 clmodel <- as.package("c:/work/repos/CLmodel")
-check(clmodel)
-install(clmodel)
+#check(clmodel)
+#install(clmodel)
+load_all(clmodel)
 
 # load data
 load("rData/modelData.rData")
+# drop any zero observations and non 3 pass fishings
+ef <- subset(ef, T > 0 & Runs == 3 & Species == "Salmon" & LifeStage == "Fry")
 
 # compile model
 m0 <- efp(X ~ 1, data = ef, passes = "Runs")
 
-# drop any zero observations
-ef <- subset(ef, T > 0)
 
-# fit saturated model
+# fit sitewise saturated model
 n <- nrow(ef)
 if (FALSE) {
   pest <- rep(NA, n)
-  for (i in which(ef$T>0)) {
+  for (i in 1:n) {
     if (i%%10==0) cat("done", i, "of", n, "     \r"); flush.console()
     pest[i] <- efp(X ~ 1, data = ef[i,], passes = "Runs", verbose = FALSE)$fitted
   }
@@ -123,14 +124,53 @@ if (FALSE) {
 }
 load("pest.rData")
 
-# loglik vectors
-ef $ R <- with(ef, s - 1 - Z)
+# calculate deviance components per observation
+ef $ p <- pest
+nij <- as.matrix(dplyr::select(ef, n_R1, n_R2, n_R3))
+pij <- t(sapply(ef $ p, function(p) p * (1-p)^c(0:2)))
+muij <- pij * ef$T/(1-(1-ef$p)^3)
 
-# keep fitted values to use as observations
-ef $ yhat <- pest
-ef $ llsat <- with(ef, T * log(yhat) + T * R * log(1-yhat) -T * log(1 - (1-yhat)^s) )
+dij <- 2*(nij * log(nij/muij) - (nij - muij))
+dij[nij == 0] <- muij[nij == 0]
+dij[abs(dij) < 1e-9] <- 0
+rij <- sign(nij - muij) * sqrt(dij)
 
 
+
+
+# calculate deviance per site visit and compare to chisq 1
+ef $ Di <- rowSums(dij)
+ef $ pchi <- pchisq(ef $ Di, 1)
+plot(ef $ Di)
+hist(ef $ pchi, nclass = 50) # should be uniform i think?
+mean(pchisq(ef $ Di, 1) > 0.95)
+mean(pchisq(ef $ Di, 1) > 0.99)
+
+#
+dord <- rev(order(ef $ Di))
+pval <- sapply(1:200, function(i) 1 - pchisq(sum(Di[-dord[1:i]]), n-i))
+plot(1:200, pval)
+outliers <- dord[which(pval < 0.05)]
+keep <- (1:n)[-outliers]
+
+par(mfrow = c(2,2))
+plot(x <- seq(0, 1, length=1000), sapply(x, function(x) 1-mean(pchisq(ef $ Di, 1) > x)), 
+     type = "l", ylab = "", xlab = "", sub = "observed Devs")
+abline(a=0,b=1)
+
+plot(x <- seq(0, 1, length=1000), sapply(x, function(x) 1-mean(pchisq(ef $ Di[keep], 1) > x)), 
+     type = "l", ylab = "", xlab = "", sub = "Drop worse 110 - chisq(sumD, n)<0.95")
+abline(a=0,b=1)
+
+plot(x <- seq(0, 1, length=1000), sapply(x, function(x) 1-mean(pchisq(ef $ Di[clean], 1) > x)), 
+     type = "l", ylab = "", xlab = "", sub = "drop obs with n1 <= n2")
+abline(a=0,b=1)
+mtext("qq plot for uniformity of chisq(dev)>x", outer = TRUE, side = 3, line = -3)
+
+# drop first 110 as outliers - sites where constant p assumtion is not valid.
+ef2 <- ef[keep,]
+
+# now check against complex model for site to site variabily
 # fit a big model  and check overdispersion
 full <- c("Trust*fyear",
          "factor(HACode)", 
@@ -149,30 +189,46 @@ full <- c("Trust*fyear",
          )
 fullf <- formula(paste("X ~", paste(full, collapse = " + ")))
 
-# and get the individual likelihood components
-mod <- efp(fullf, data = ef, passes = "Runs")
+# and get the individual ps
+mod <- efp(fullf, data = ef2, passes = "Runs")
 # get p predictions for ef
-ef $ p <- fitted(mod)
+ef2 $ pbig <- fitted(mod)
 
 # get logLik components
-ef $ ll <- with(ef, T * log(p) + T * R * log(1-p) -T * log(1 - (1-p)^s) )
+ef2 $ R <- with(ef2, s - 1 - Z)
+ef2 $ llsat <- with(ef2, T * log(p) + T * R * log(1-p) - T * log(1 - (1-p)^s) )
+ef2 $ llbig <- with(ef2, T * log(pbig) + T * R * log(1-pbig) - T * log(1 - (1-pbig)^s) )
 
 # calculate Deviance components and residuals
-ef $ devcomp <- with(ef, 2 * (llsat - ll))
-ef $ devres <- with(ef, sign(yhat - p)*sqrt(devcomp))
+ef2 $ devcomp <- with(ef2, 2 * (llsat - llbig))
+ef2 $ devres <- with(ef2, sign(p - pbig)*sqrt(devcomp))
+plot(ef2 $ devres)
 
 # calculate deviance 
-D <- sum(ef $ devcomp)
+dord <- rev(order(abs(ef2 $ devres)))
+pval <- sapply(1:1000, function(i) 1 - pchisq(sum(ef2 $ devcomp[-dord[1:i]]), n-i))
+plot(1:1000, pval)
+outliers <- dord[which(pval < 0.05)]
+keep <- (1:n)[-outliers]
+
+plot(ef2 $ devres)
+points(keep, ef2 $ devres[keep], pch = 16)
+
 
 # and check for overdispersion
 npar <- mod $ rank
 print(1 - pchisq(D, n-npar), 10) # so highly significant overdispersion
 
 # scale estimate
-phi <- D / (n-npar)
-phi
-#[1] 3.558088
+sum(ef2 $ devcomp)/(nrow(ef2)-mod $ rank)
 
+#[1] 3.07
 
+# drop massive residual
+drop <- which(abs(ef2 $ devres) > 10)
+sum(ef2 $ devcomp[-drop])/(nrow(ef2[-drop,])-mod $ rank)
+ef2[drop,]
+
+plot(ef2 $ devres[-drop])
 
 

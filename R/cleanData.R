@@ -10,7 +10,7 @@ if (Sys.info()["user"] == "millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("C:/work/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
 
 
@@ -89,17 +89,3 @@ ef $ keep <-
 
 save(ef, file = "rData/modelData.rData")
 }
-
-# some data summaries
-
-length(unique(ef $ Site_OBJECTID))
-length(unique(paste(ef $ Site_OBJECTID, ef$Date)))
-
-
-length(unique(ef $ DESCRIPTIO))
-length(unique(ef $ CATCH_ID))
-
-table(ef $ year)
-
-table(ef $ Runs)
-table(ef $ Runs)/nrow(ef)*100
