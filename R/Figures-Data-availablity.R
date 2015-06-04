@@ -1,15 +1,18 @@
 
 
 
+
 if (Sys.info()["user"] == "millaco") {
-  setwd("~/work/SMFS-report")    
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
+  library(setwidth)
 } else 
 if (Sys.info()["user"] == "millarc") {
-  setwd("B:/Conservation_Limits/CL_Juvenile_Density/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("B:/Conservation_Limits/CL_Juvenile_Density/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
+
 
 
 #############################################################
@@ -18,45 +21,42 @@ if (Sys.info()["user"] == "Millarc") {
 #
 #############################################################
 
-
-coast <- rgdal::readOGR("../GIS_shapefiles_for_model/Coastline", "britisles")[2,]
+library(spdep)
+coast <- rgdal::readOGR("mapdata", "britisles")[2,]
 load("rData/densmodelData.rData")
 
 
 {
-png(file = "figures/data_map.png", width = 9, height = 9, units = "in", res = 1200)
+png(file = "figures/data_map.png", width = 7, height = 9, units = "in", res = 400)
 
 {
-cols <- hexbin::BTC(nlevels(ef $ Trust))
-names(cols) <- levels(ef $ Trust)
+cols <- hexbin::BTC(nlevels(ef3 $ Trust))
+names(cols) <- levels(ef3 $ Trust)
 cols[c("MSS", "SEPA", "Other")] <- sapply(c("red", "gold3", "darkgreen"), function(x) colorRampPalette(x)(1))
-cols[!names(cols) %in% c("MSS", "SEPA", "Other")] <- BTC(nlevels(ef $ Trust)-3, end = 150)
+cols[!names(cols) %in% c("MSS", "SEPA", "Other")] <- hexbin::BTC(nlevels(ef3 $ Trust)-3, end = 150)
 
 cols1 <- paste0(cols, "77")
 cols2 <- paste0(cols, "DD")
 
-par(mfrow = c(2,2), mar = c(0,0,0,0))
-for (y in seq(1995, 2013, by = 5)) {
+par(mar = c(0,0,0,0))
   plot(coast, border = grey(0.5), ylim = c(550000, 970000))
   
-  for (i in 1:nlevels(ef $ Trust)) {
-    pdat <- subset(ef, Trust == levels(Trust)[i] & year %in% (y + 0:4)) 
+  for (i in 1:nlevels(ef3 $ Trust)) {
+    pdat <- subset(ef3, Trust == levels(Trust)[i]) 
     with(unique(pdat[c("NEAR_Y", "NEAR_X")]),
     {
       points(NEAR_X, NEAR_Y, pch = 16, col = cols1[i], cex = .7)    
     })
   }
 
-  for (i in 1:nlevels(ef $ Trust)) {
-    pdat <- subset(ef, Trust == levels(Trust)[i] & year %in% (y + 0:4)) 
+  for (i in 1:nlevels(ef3 $ Trust)) {
+    pdat <- subset(ef3, Trust == levels(Trust)[i]) 
     with(unique(pdat[c("NEAR_Y", "NEAR_X")]),
     {
       points(NEAR_X, NEAR_Y, pch = 1, col = cols2[i], cex = .7)    
     })
   }
-  text(120000, 570000, paste(if (y==1995) 1997 else y, "to", if(y==2010) 2013 else y + 4), font = 2)
-}
-
+ 
 }
 
 dev.off()
@@ -166,7 +166,7 @@ matrix.plot <- function (x, colorkey = FALSE, ...) {
 }
 
 
-tab <- with(ef, table(year, Trust))
+tab <- with(ef3, table(year, Trust))
 tab[tab == 0] <- NA
 
 tab <- tab[,order(colMeans(tab, na.rm = TRUE), decreasing = TRUE)]

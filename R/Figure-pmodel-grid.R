@@ -2,14 +2,16 @@
 
 
 if (Sys.info()["user"] == "millaco") {
-  setwd("~/work/SMFS-report")    
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
+  library(setwidth)
 } else 
 if (Sys.info()["user"] == "millarc") {
-  setwd("B:/Conservation_Limits/CL_Juvenile_Density/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("C:/work/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
+
 
 # load fits and model data
 load("rData/bestpmodel.rData")
@@ -27,25 +29,16 @@ var.summary <- best $ Gsetup $ var.summary
 var.type <- sapply(var.summary, function(x) is(x)[1])
 var.names <- names(var.summary)
 
-which <- c("year", "doy", "Water_W", "Elevation_", "Distance_s", "sinSlope", 
-           "Upcatch_km" ,"CTrees", "Urban" ,"NCTrees" ,"Mixed" ,
-            "Marsh" ,"Other","Trust", "fyear", "HACode")
-fullnames <- data.frame(names = c("Year", 
-                          "DoY", 
-                          "Width", 
+which <- c("LifeStage", "Trust", "fyear", "Elevation_", "Distance_s", "totalN", 
+           "Water_W" ,"doy")
+fullnames <- data.frame(names = c("Lifestage", 
+                          "Organisation", 
+                          "Year", 
                           "Altitude", 
                           "DS", 
-                          "Gradient", 
-                          "UCA" ,
-                          "Conifer", 
-                          "Urban",
-                          "Deciduous",
-                          "Mixed",
-                          "Marsh",
-                          "Other",
-                          "Organisation",
-                          "Year (factor)",
-                          "HA"),
+                          "SalmonPass1", 
+                          "Width" ,
+                          "DoY"),
                         stringsAsFactors = FALSE)
 rownames(fullnames) <- which
 
@@ -56,6 +49,7 @@ pdata0 <- ifelse(var.type == "numeric",
                    lapply(var.summary, "[", 2), 
                    lapply(var.summary, function(x) levels(x)[floor(nlevels(x)/2)])
                 )
+pdata0 $ LifeStage <- "Fry"
 pdata0 $ Trust <- "MSS"
 pdata0 $ fyear <- "2006"
 
@@ -65,7 +59,8 @@ pdata1 <- ifelse(var.type == "numeric",
                    lapply(var.summary, function(x) levels(x))
                 )
 pdata1 $ fyear <- paste(1997:2013)
-pdata1 $ HACode <- sort(unique(ef $ HACode))
+pdata1 $ totalN <- seq(0, 1000, length = 100)
+
 
 
 # set up prediction data frame
@@ -78,13 +73,15 @@ getPlotData <- function(var, func = function(x) exp(x) / (1+exp(x)), model = g1)
   # and predict
   pdata[c("fit", "se")] <- predict(model, newdata = pdata, se.fit = TRUE)
   pdata $ p <- func(pdata $ fit)
-  pdata $ cil <- func(pdata $ fit - 2*pdata $ se)
-  pdata $ ciu <- func(pdata $ fit + 2*pdata $ se)
+  pdata $ cil <- func(pdata $ fit - 2*pdata $ se * sqrt(2.13))
+  pdata $ ciu <- func(pdata $ fit + 2*pdata $ se * sqrt(2.13))
   pdata $ var <- paste(var, collapse = ":")
 
   if (length(var) > 1) {
-    stop()
+    #stop()
     #pdata $ x <- as.numeric(do.call(interaction, c(pdata[var], list(sep = " "))))
+    pdata $ x <- as.numeric(pdata[[var[1]]])
+    pdata $ cx <- paste(pdata[[var[1]]]) 
   } else {
     pdata $ x <- as.numeric(pdata[[var]])
     pdata $ cx <- paste(pdata[[var]])    
@@ -149,14 +146,64 @@ continuousPlot <- function(pdata, ylim = NULL, xlab = "", rug = NULL, yaxislab =
   }
 }
 
-{
-png(file = "figures/pmodel_grid.png", width = 7, height = 7, units = "in", res = 500)
 
-ylim <- c(0.1, 0.8)
+continuousPlot2 <- function(pdata, ylim = NULL, xlab = "", rug = NULL, yaxislab = TRUE) {
+
+  if (is.null(ylim)) {
+    ylim <- range(pdata $ cil, pdata $ ciu)
+  } 
+
+  plot(pdata $ x, pdata $ p, type = "n", ylim = ylim, axes = FALSE, ann = FALSE)
+#  lines(pdata $ x, pdata $ cil, lty = 2)
+#  lines(pdata $ x, pdata $ ciu, lty = 2)
+
+  by <- strsplit(pdata $ var, ":")[[1]][2]
+  cols <- c("blue", "red")
+  cols <- colorRampPalette(cols)(2)
+  colsp <- paste0(cols, "33")
+  for (i in 1:2) {
+    with(subset(pdata, pdata[[by]] == unique(pdata[[by]])[i]), {
+      polygon(c(x, rev(x)), c(cil, rev(ciu)), border = NA, col = colsp[i])
+    })
+  }
+  for (i in 1:2) {
+    with(subset(pdata, pdata[[by]] == unique(pdata[[by]])[i]), {
+      lines(x, p, col = cols[i])
+    })
+  }
+
+  axis(2, las = 1, labels = yaxislab)
+  axis(1)
+  title(ylab = "", main = xlab)
+  box(bty = "l")
+  # a rug!
+  if (!is.null(rug)) {
+    dx <- diff(rx <- range(rug, na.rm = TRUE))
+    breaks <- seq.int(rx[1], rx[2], length.out = 101)
+
+    dens <- table(cut(rug, breaks))
+    cols <- heat.colors(11)
+
+    dz <- diff(rz <- range(dens[dens > 0], na.rm = TRUE))
+    zbreaks <- seq.int(rz[1], rz[2], length.out = 11)
+
+    zs <- as.numeric(cut(dens, zbreaks))
+    for (i in 1:100) {
+      polygon(breaks[i + 0:1][c(1,2,2,1)], ylim[1] + c(0, diff(ylim)*.05)[c(1,1,2,2)], 
+              col = cols[zs[i]], border = NA)
+    }
+  }
+}
+
+
+{
+png(file = "figures/pmodel_grid.png", width = 7, height = 7, units = "in", res = 400)
+
+ylim <- c(0.33, .8)
 
 par(mar = c(5,2.5,3,1)) # c(bottom, left, top, right)
 
-layout(rbind(c(1,1,2), c(3,4,4), c(5,6,7)))
+layout(rbind(c(1,1,2), c(3,4,5), c(6,7,8)))
 
 
 #   Trust predictions of p
@@ -167,40 +214,42 @@ pdata $ Trust <- as.character(pdata $ Trust)
 pdata $ Trust[pdata $ Trust == "Other"] <- "Caithness"
 factorPlot(pdata, xlab = "Organisation", ylim = ylim, labcex = 0.8)
 
+
+#   Lifestage predictions of p
+# ----------------------------------------
+pdata <- getPlotData("LifeStage")
+factorPlot(pdata, xlab = fullnames["LifeStage",], ylim = ylim, labcex = 0.8, yaxislab = FALSE)
+
+
+#   totalN predictions of p
+# ----------------------------------------
+pdata <- getPlotData(c("totalN", "LifeStage"))
+continuousPlot2(pdata, xlab = fullnames["totalN",], rug = ef3 $ totalN, ylim = ylim)
+
+
 #   DoY predictions of p
 # ----------------------------------------
-pdata <- getPlotData("doy")
-continuousPlot(pdata, xlab = fullnames["doy",], rug = ef $ doy, ylim = ylim, yaxislab = FALSE)
+pdata <- getPlotData(c("doy", "LifeStage"))
+continuousPlot2(pdata, xlab = fullnames["doy",], rug = ef3 $ doy, ylim = ylim, yaxislab = FALSE)
 
 
 #   Year predictions of p
 # ----------------------------------------
 pdata <- getPlotData("fyear")
-factorPlot(pdata, xlab = "Year", ylim = ylim)
-
-
-#   HA predictions of p
-# ----------------------------------------
-pdata <- getPlotData("HACode")   
-# order north to south?
-ns <- coordinates(hma)[,2]
-names(ns) <- hma $ HACode
-ord <- order(ns[paste(pdata $ HACode)])
-#ord <- order(pdata $ p)
-pdata <- pdata[ord,]
-factorPlot(pdata, xlab = fullnames["HACode",], ylim = ylim, labcex = 0.8, yaxislab = FALSE)
+factorPlot(pdata, xlab = "Year", ylim = ylim, yaxislab = FALSE)
 
 
 #   other predictions of p
 # ----------------------------------------
-covars <- c("Distance_s", "Water_W", "sinSlope")
+covars <- c("Distance_s", "Elevation_", "Water_W")
 
 for (i in seq_along(covars)) {
   pdata <- getPlotData(covars[i])
-  continuousPlot(pdata, xlab = fullnames[covars[i],], rug = ef[[covars[i]]], ylim = ylim, i %in% c(1,4))  
+  continuousPlot(pdata, xlab = fullnames[covars[i],], rug = ef3[[covars[i]]], ylim = ylim, i == 1)  
 } 
 
 dev.off()
 
 }
+
 }

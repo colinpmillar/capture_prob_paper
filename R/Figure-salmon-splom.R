@@ -1,13 +1,21 @@
 
+
+
 if (Sys.info()["user"] == "millaco") {
-  setwd("~/work/SMFS-report")    
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
+  library(setwidth)
 } else 
 if (Sys.info()["user"] == "millarc") {
-  setwd("B:/Conservation_Limits/CL_Juvenile_Density/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 } else 
 if (Sys.info()["user"] == "Millarc") {
-  setwd("B:/Conservation_Limits/CL_Juvenile_Density/SMFS-report")
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
+
+
+# load fits and model data
+load("rData/bestpmodel.rData")
+load("rData/densmodelData.rData")
 
 
 
@@ -124,8 +132,8 @@ splom(data,
 load("rData/densmodelData.rData")
 
 which <- c("year", "doy", "Water_W", "Elevation_", "Distance_s", "sinSlope", 
-           "Upcatch_km" ,"CTrees", "Urban" ,"NCTrees" ,"Mixed" ,
-            "Marsh" ,"Other", "NEAR_X", "NEAR_Y")
+           "Upcatch_km", "Urban" ,"woodland",
+            "Marsh" ,"Other", "NEAR_X", "NEAR_Y", "totalN", "HACode")
 
 fullnames <- data.frame(names = c("Year", 
                           "DoY", 
@@ -134,24 +142,22 @@ fullnames <- data.frame(names = c("Year",
                           "DS", 
                           "Gradient", 
                           "UCA" ,
-                          "Conifer", 
                           "Urban",
-                          "Deciduous",
-                          "Mixed",
+                          "Woodland",
                           "Marsh",
                           "Other",
-                          "Lat", "Lon"),
+                          "Lat", "Lon", "SalmonPass1", "HA"),
                         stringsAsFactors = FALSE)
 rownames(fullnames) <- which
 
-pdata <- ef[which]
+pdata <- ef3[which]
 names(pdata) <- fullnames[names(pdata),]
 
 
 
 
 p1 <- clsplom(pdata[c("Lat", "Lon", "Year", "DoY", "Width", "Altitude", "DS", "Gradient", "UCA")])
-p2 <- clsplom2(pdata[c("Lat", "Lon", "Year", "Conifer", "Urban","Deciduous","Mixed","Marsh","Other")])
+p2 <- clsplom2(pdata[c("Lat", "Lon", "Year", "SalmonPass1", "HA", "Urban","Woodland","Marsh","Other")])
 
 p1
 p2
