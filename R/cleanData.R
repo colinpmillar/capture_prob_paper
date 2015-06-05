@@ -31,8 +31,7 @@ ef <- do.call(rbind,
         ))
 
 # drop rows with all NAs
-ef <- ef[apply(ef[paste0("n_R", 1:6)], 1, function(x) !all(is.na(x))), ]
-
+#ef <- ef[apply(ef[paste0("n_R", 1:6)], 1, function(x) !all(is.na(x))), ]
 
 # tag on HMA data
 data(hma)

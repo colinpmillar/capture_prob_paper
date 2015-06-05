@@ -64,7 +64,7 @@ pdata1 $ totalN <- seq(0, 1000, length = 100)
 
 
 # set up prediction data frame
-getPlotData <- function(var, func = function(x) exp(x) / (1+exp(x)), model = g1) {
+getPlotData <- function(var, func = function(x) exp(x) / (1+exp(x)), model = g1, phi = 2.434) {
   args <- pdata0[!names(pdata0) %in% var]
   args[var] <- pdata1[var]
 
@@ -73,8 +73,8 @@ getPlotData <- function(var, func = function(x) exp(x) / (1+exp(x)), model = g1)
   # and predict
   pdata[c("fit", "se")] <- predict(model, newdata = pdata, se.fit = TRUE)
   pdata $ p <- func(pdata $ fit)
-  pdata $ cil <- func(pdata $ fit - 2*pdata $ se * sqrt(2.13))
-  pdata $ ciu <- func(pdata $ fit + 2*pdata $ se * sqrt(2.13))
+  pdata $ cil <- func(pdata $ fit - 2*pdata $ se * sqrt(phi))
+  pdata $ ciu <- func(pdata $ fit + 2*pdata $ se * sqrt(phi))
   pdata $ var <- paste(var, collapse = ":")
 
   if (length(var) > 1) {
@@ -203,7 +203,7 @@ ylim <- c(0.33, .8)
 
 par(mar = c(5,2.5,3,1)) # c(bottom, left, top, right)
 
-layout(rbind(c(1,1,2), c(3,4,5), c(6,7,8)))
+layout(rbind(c(1,1,2), c(3,4,4), c(5,6,7)))
 
 
 #   Trust predictions of p
@@ -221,16 +221,10 @@ pdata <- getPlotData("LifeStage")
 factorPlot(pdata, xlab = fullnames["LifeStage",], ylim = ylim, labcex = 0.8, yaxislab = FALSE)
 
 
-#   totalN predictions of p
-# ----------------------------------------
-pdata <- getPlotData(c("totalN", "LifeStage"))
-continuousPlot2(pdata, xlab = fullnames["totalN",], rug = ef3 $ totalN, ylim = ylim)
-
-
 #   DoY predictions of p
 # ----------------------------------------
 pdata <- getPlotData(c("doy", "LifeStage"))
-continuousPlot2(pdata, xlab = fullnames["doy",], rug = ef3 $ doy, ylim = ylim, yaxislab = FALSE)
+continuousPlot2(pdata, xlab = "Lifestage x DoY", rug = ef3 $ doy, ylim = ylim, yaxislab = FALSE)
 
 
 #   Year predictions of p

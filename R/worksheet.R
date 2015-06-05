@@ -105,8 +105,30 @@ load_all(clmodel)
 
 # load data
 load("rData/modelData.rData")
-# drop any zero observations and non 3 pass fishings
-ef <- subset(ef, T > 0 & Runs == 3 & Species == "Salmon")
+# keep salmon, 3 pass fishings within the covariate bounds
+ef <- subset(ef, Runs == 3 & Species == "Salmon" & keep)
+#ef <- subset(ef, Species == "Salmon" & keep)
+
+# summaries full data
+sampledf <- data.frame(
+   siteid = ef $ Site_OBJECTID,
+   visitid = paste0(ef $ Site_OBJECTID, ":", ef $ Date),
+   sampleid = 1:nrow(ef))
+
+sapply(sampledf, function(x) length(unique(x)))
+
+unique(table(sampledf $ visitid))
+table(table(sampledf $ visitid))
+
+# double sampling sometimes - different trusts sampling same site on same day
+#oddvisits <- names(which(table(sampledf $ visitid) == 4))
+#ef[sampledf $ visitid %in% oddvisits[1],]
+
+# drop any zero observations
+ef <- ef[!is.na(ef $ T), ]
+ef <- ef[ef $ T > 0, ]
+
+
 
 # compile model
 m0 <- efp(X ~ 1, data = ef, passes = "Runs")
@@ -140,12 +162,15 @@ m0 <- efp(X ~ 1, data = ef, passes = "Runs")
 # try an alternative to estimating deviance
 # this exploits that we only have 3 pass data
 pest <- with(ef, ifelse(X < T*(s-1)/2, 0, (3 * X - T - sqrt(T^2 + 6*X*T - 3*X^2))/(2*X)))
+ef $ psat <- replace(pest, pest == 0, 1e-9)
+ef $ psat <- replace(ef $ psat, pest == 1, 1-1e-9)
 
 # calculate deviance components per observation
-ef $ psat <- pest
+# need to adjust p estimates that are zero to get a deviance for them...
+# the problem is that you can have an estimate of zero p, while there are still counts 
 nij <- as.matrix(dplyr::select(ef, n_R1, n_R2, n_R3))
-pij <- t(sapply(ef $ psat, function(p) p * (1-p)^c(0:2)))
-muij <- pij * ef$T/(1-(1-ef$psat)^3)
+pij <- t(sapply(replace(pest, pest == 0, 1e-9), function(p) p * (1-p)^c(0:2)))
+muij <- pij * ef$T/(1-(1-replace(pest, pest == 0, 1e-9))^3)
 
 dij <- 2*(nij * log(nij/muij) - (nij - muij))
 dij[nij == 0] <- muij[nij == 0]
@@ -221,29 +246,34 @@ ef2 <- subset(ef2, !(Date == "03/08/2006" & Site_OBJECTID == 2626))
 ef2 <- subset(ef2, keep)
 ef3 <- ef2
 
+# some covariate summaries
+length(unique(ef3 $ Trust))
+length(unique(ef3 $ HACode))
+
+range(apply(table(ef $ CATCH_ID, ef $ HACode), 2, function(x) sum(x>0)))
+
+length(unique(ef3 $ year))
+
 # fit a big model  and check overdispersion
 full <- c("LifeStage*Trust*fyear",
-          "s(totalN, k = 4)",
           "factor(HACode)", 
-          "s(Water_W, k = 6)",
-          "s(Elevation_, k = 6)", 
-          "s(Distance_s, k = 6)",
-          "s(sinSlope, k = 6)",
-          "s(Upcatch_km, k = 6)",
-          "s(Urban, k = 6)",
-          "s(NCTrees, k = 6)",
-          "s(CTrees, k = 6)",
-          "s(Mixed, k = 6)",
-          "s(Marsh, k = 6)",
-          "s(Other, k = 6)",
-          "s(doy, k = 6)"
+         "s(Water_W, k = 3)",
+         "s(Elevation_, k = 3)", 
+         "s(Distance_s, k = 3)",
+         "s(sinSlope, k = 3)",
+         "s(Upcatch_km, k = 3)",
+         "s(Urban, k = 3)",
+         "s(woodland, k = 3)",
+         "s(Marsh, k = 3)",         
+         "s(Other, k = 3)",
+         "s(doy, k = 3)"
          )
 fullf <- formula(paste("X ~", paste(full, collapse = " + ")))
 
 # and get the individual ps
 if (FALSE) {
-  bigmod <- efp(fullf, data = ef2, passes = "Runs")
-  save(bigmod, ef2, file = "bigmod.rData")
+  bigmod <- efp(fullf, data = ef3, passes = "Runs")
+  save(bigmod, ef3, file = "bigmod.rData")
 }
 load("bigmod.rData")
 
@@ -253,6 +283,7 @@ ef2 $ pbig <- fitted(bigmod)
 
 # get logLik components
 ef2 $ R <- with(ef2, s - 1 - Z)
+
 ef2 $ llsat <- with(ef2, T * log(psat) + T * R * log(1-psat) - T * log(1 - (1-psat)^s) )
 ef2 $ llbig <- with(ef2, T * log(pbig) + T * R * log(1-pbig) - T * log(1 - (1-pbig)^s) )
 
@@ -285,112 +316,46 @@ print(1 - pchisq(sum(ef2 $ devcomp), n-npar), 10) # so highly significant overdi
 # scale estimate
 sum(ef2 $ devcomp)/(nrow(ef2)-bigmod $ rank)
 
-#[1] 2.108
+#[1] 2.193646
 
 
 # plot residuals against time and organisation
-lattice::xyplot(devres ~ I(year + doy/365) | Trust, data = ef2, pch = ".")
+lattice::xyplot(devres ~ I(year + doy/365) | Trust, data = ef2, pch = 16, cex = 0.6, grid = TRUE)
 
 
+
+
+# ------------------------------------------------
 # ------------------------------------------------
 # 
 #  Model fitting
 # 
 # ------------------------------------------------
+# ------------------------------------------------
 
 
-phiBIC <- function(object, ..., phi = 2.11) {
-  ll <- if ("stats4" %in% loadedNamespaces()) stats4:::logLik
-    else logLik
-  Nobs <- if ("stats4" %in% loadedNamespaces()) stats4:::nobs
-    else nobs
-  lls <- ll(object)
-  nos <- attr(lls, "nobs")
-  -2 * as.numeric(lls)/phi + log(nos) * attr(lls, "df")
+if (Sys.info()["user"] == "millaco") {
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
+  library(setwidth)
+} else 
+if (Sys.info()["user"] == "millarc") {
+  setwd("C:/work/repos/papers/capture_prop_paper/")
+} else 
+if (Sys.info()["user"] == "Millarc") {
+  setwd("C:/work/repos/papers/capture_prop_paper/")
 }
 
-# should maybe return the best model as well summaries...
-summaryMods <- function(lst, m0 = NULL, order = TRUE, fn = phiBIC, phi = 2.11) {
-  #aics <- sapply(lst, AIC)
-  fn <- match.fun(fn)
-  aics <- sapply(lst, fn)
-
-  tab <- 
-   data.frame(
-    forms = sapply(lst, function(x) paste(deparse(x$formula, width.cutoff = 500L))),
-    aic = aics
-    )
-
-  if (!is.null(m0)) tab $ Daic <- tab $ aic - fn(m0, phi = phi)
-  if (order) tab <- tab[order(aics),]
-
-  unique(tab)  
-}
-
-runModels <- function(chosen, f1s, data = ef3, fn = phiBIC, phi = 2.11, ...) {
-  # build a formula list of additions
-  formsadd <- lapply(f1s[!chosen], function(x) as.formula(paste0("X ~ ", paste(c(f1s[chosen], x), collapse = " + "))))
-
-  descadd <- f1s[!chosen]
-  dropadd <- rep("add", sum(!chosen))
-
-  #build a formula list dropping elements
-  if (any(chosen)) {
-    if (sum(chosen)==1) {
-      formsdrop <- list(X ~ 1)
-    } else {
-      formsdrop <- lapply(seq(sum(chosen)), function(i) as.formula(paste0("X ~ ", paste(f1s[chosen][-i], collapse = " + ") )))
-    }
-    descdrop <- f1s[chosen]
-    forms <- c(formsadd, formsdrop)
-    desc <- c(descadd, descdrop)
-    dropadd <- c(dropadd, rep("drop", sum(chosen)))
-  } else {
-    forms <- formsadd
-    desc <- descadd
-  }
-
-  mods <- lapply(forms, efp, data = data, passes = "Runs", ...)
-
-  if (all(!chosen)) {
-    m0 <- efp(X ~ 1, data = data, passes = "Runs", ...)
-  } else {
-    m0 <- efp(as.formula(paste0("X ~ ", paste(f1s[chosen], collapse = " + "))), data = data, passes = "Runs", ...)    
-  }
-  
-  tab <- cbind(what = desc, step = dropadd, summaryMods(mods, m0 = m0, order = FALSE, fn = fn, phi = phi)[,-1] )
-  tab[order(tab $ Daic),]
-}
-  
-runSelection <- function(forms, data = ef3, fn = phiBIC, phi = 2.11) {
-  chosen <- rep(FALSE, length(forms))
-  out <- list(Daic = -1)
-  tol <- 0
-  outlist <- list() # grow this - bad!
-  i <- 0
-  while(out $ Daic[1] < tol & !all(chosen)) {
-    out <- runModels(chosen, forms, verbose = FALSE, data = data, fn = fn, phi = phi)
-    print(head(out, 10), digits = 3)
-    if ( out $ Daic[1] < 0) {
-      # then model is an improvement
-      which <- which(forms %in% out $ what[1])
-      chosen[which] <- !chosen[which]
-      cat("\t", paste(forms[chosen], collapse = " + "), "\n ----------------------------------------------- \n")
-      outlist[[i <- i + 1]] <- out
-    } 
-  }
-
-  if (all(!chosen)) {
-    mod <- efp(X ~ 1, data = data, passes = "Runs")
-  } else {
-    mod <- efp(as.formula(paste0("X ~ ", paste(forms[chosen], collapse = " + "))), data = data, passes = "Runs")
-  }
-
-  list(history = outlist, chosen = chosen, mod = mod)
-}
+library(devtools)
+clmodel <- as.package("c:/work/repos/CLmodel")
+#check(clmodel)
+#install(clmodel)
+load_all(clmodel)
 
 
 
+load("bigmod.rData")
+source("R/ModelSelectionFunctions.R")
+ 
 ## Q model for spatial regions
 library(CLdata)
 require(Matrix)
@@ -415,26 +380,16 @@ require(Matrix)
 }
 
 
-
 # now some model selection
+{
 f1s <- c("LifeStage",
          "Trust",
-         #"Trust:fyear",
-         #"te(NEAR_X, NEAR_Y, k = c(4,4))",
-         #"ti(NEAR_X, NEAR_Y, k = c(4,4))",
-         #"s(HACode, k = 8, bs = 'gmrf', xt = list(penalty = Qhma))",
          "fyear",
-         "s(totalN, k = 3)",
-         "poly(Water_W, 1)",
-         "poly(Elevation_, 1)", 
-         "poly(Distance_s, 1)",
-         "poly(sinSlope, 1)",
-         "poly(Upcatch_km, 1)",
-         "poly(Urban, 1)",
-         "poly(woodland, 1)",
-         "poly(Marsh, 1)",         
-         "poly(Other, 1)",
-         "poly(doy, 1)",
+         "Trust:fyear",
+         "Trust:LifeStage",
+         "fyear:LifeStage",
+         "Trust:fyear:LifeStage",
+         "factor(HACode)",      
          "s(Water_W, k = 3)",
          "s(Elevation_, k = 3)", 
          "s(Distance_s, k = 3)",
@@ -445,7 +400,110 @@ f1s <- c("LifeStage",
          "s(Marsh, k = 3)",         
          "s(Other, k = 3)",
          "s(doy, k = 3)",
-         "s(totalN, k = 3, by = LifeStage)",
+         "poly(Water_W, 1)",
+         "poly(Elevation_, 1)", 
+         "poly(Distance_s, 1)",
+         "poly(sinSlope, 1)",
+         "poly(Upcatch_km, 1)",
+         "poly(Urban, 1)",
+         "poly(woodland, 1)",
+         "poly(Marsh, 1)",         
+         "poly(Other, 1)",
+         "poly(doy, 1)",
+         "s(NEAR_X, k = 4)",
+         "s(NEAR_Y, k = 4)",
+         "te(NEAR_X, NEAR_Y, k = c(4,4))",
+         "ti(NEAR_X, NEAR_Y, k = c(4,4))",
+         "s(HACode, k = 12, bs = 'gmrf', xt = list(penalty = Qhma))",
+         "s(HACode, k = 16, bs = 'gmrf', xt = list(penalty = Qhma))",
+         "poly(Water_W, 1):LifeStage",
+         "poly(Elevation_, 1):LifeStage", 
+         "poly(Distance_s, 1):LifeStage",
+         "poly(sinSlope, 1):LifeStage",
+         "poly(Upcatch_km, 1):LifeStage",
+         "poly(Urban, 1):LifeStage",
+         "poly(woodland, 1):LifeStage",
+         "poly(Marsh, 1):LifeStage",         
+         "poly(Other, 1):LifeStage",
+         "poly(doy, 1):LifeStage",
+         "s(Water_W, k = 3, by = LifeStage)",
+         "s(Elevation_, k = 3, by = LifeStage)", 
+         "s(Distance_s, k = 3, by = LifeStage)",
+         "s(sinSlope, k = 3, by = LifeStage)",
+         "s(Upcatch_km, k = 3, by = LifeStage)",
+         "s(Urban, k = 3, by = LifeStage)",
+         "s(woodland, k = 3, by = LifeStage)",
+         "s(Marsh, k = 3, by = LifeStage)",         
+         "s(Other, k = 3, by = LifeStage)",
+         "s(doy, k = 3, by = LifeStage)",
+         "s(totalN, k = 3)",
+         "s(totalN, k = 3, by = LifeStage)"
+         )[1:53]
+}
+
+#   Loop over adding in covariates
+ef3 $ LifeStage <- factor(ef3 $ LifeStage)
+#ef3 $ totalN <- ef3 $ totalN^.25
+runSelection(f1s[29:30], data = ef3, fn = phiBIC, phi = 2.1085)
+
+start <- rep(FALSE, 53)
+start[1:19] <- TRUE
+fullf <- formula(paste("X ~", paste(f1s[start], collapse = " + ")))
+bigmodtest <- efp(fullf, data = ef3, passes = "Runs")
+
+logLik(bigmod)
+logLik(bigmodtest)
+
+# cheat!
+phiBIC(bigmod)
+start[7] <- FALSE
+fullf <- formula(paste("X ~", paste(f1s[start], collapse = " + ")))
+modnext <- efp(fullf, data = ef3, passes = "Runs")
+phiBIC(modnext) - phiBIC(bigmod)
+
+start[4] <- FALSE
+fullf <- formula(paste("X ~", paste(f1s[start], collapse = " + ")))
+modnext1 <- efp(fullf, data = ef3, passes = "Runs")
+phiBIC(modnext1) - phiBIC(modnext)
+
+start[5] <- FALSE
+fullf <- formula(paste("X ~", paste(f1s[start], collapse = " + ")))
+modnext2 <- efp(fullf, data = ef3, passes = "Runs")
+phiBIC(modnext2) - phiBIC(modnext1)
+
+start[6] <- FALSE
+fullf <- formula(paste("X ~", paste(f1s[start], collapse = " + ")))
+modnext3 <- efp(fullf, data = ef3, passes = "Runs")
+phiBIC(modnext3) - phiBIC(modnext2)
+
+
+{
+f1s <- c("LifeStage",
+         "Trust",
+         "fyear",
+         "factor(HACode)",      
+         "s(Water_W, k = 3)",
+         "s(Elevation_, k = 3)", 
+         "s(Distance_s, k = 3)",
+         "s(sinSlope, k = 3)",
+         "s(Upcatch_km, k = 3)",
+         "s(Urban, k = 3)",
+         "s(woodland, k = 3)",
+         "s(Marsh, k = 3)",         
+         "s(Other, k = 3)",
+         "s(doy, k = 3)",
+         "poly(Water_W, 1)",
+         "poly(Elevation_, 1)", 
+         "poly(Distance_s, 1)",
+         "poly(sinSlope, 1)",
+         "poly(Upcatch_km, 1)",
+         "poly(Urban, 1)",
+         "poly(woodland, 1)",
+         "poly(Marsh, 1)",         
+         "poly(Other, 1)",
+         "poly(doy, 1)",
+         "te(NEAR_X, NEAR_Y, k = c(4,4))",
+         "s(HACode, k = 12, bs = 'gmrf', xt = list(penalty = Qhma))",
          "poly(Water_W, 1):LifeStage",
          "poly(Elevation_, 1):LifeStage", 
          "poly(Distance_s, 1):LifeStage",
@@ -467,94 +525,71 @@ f1s <- c("LifeStage",
          "s(Other, k = 3, by = LifeStage)",
          "s(doy, k = 3, by = LifeStage)"
          )
+}
 
-
-#   Loop over adding in covariates
-ef3 $ LifeStage <- factor(ef3 $ LifeStage)
-ef3 $ totalN <- ef3 $ totalN^.25
-runSelection(f1s[29:30], data = ef3, fn = phiBIC, phi = 2.1085)
-
+start <- rep(FALSE, length(f1s))
+start[1:24] <- TRUE
+logLik(bigmod)
+getScale(ef3, bigmod)
 if (TRUE) {
-  sel1 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.108524)
+  sel1 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.20, start = start)
   save(sel1, ef3, file = "sel1.rData")
 }
 load("sel1.rData")
 
-# re-estimate phi
-
-wk <- ef3
-mod <- sel1 $ mod
-
-
-getScale <- function(wk, mod) {
-  # get p predictions for ef
-  wk $ pbig <- fitted(mod)
-
-  # get logLik components
-  wk $ R <- with(wk, s - 1 - Z)
-  wk $ llsat <- with(wk, T * log(psat) + T * R * log(1-psat) - T * log(1 - (1-psat)^s) )
-  wk $ llbig <- with(wk, T * log(pbig) + T * R * log(1-pbig) - T * log(1 - (1-pbig)^s) )
-
-  # calculate Deviance components and residuals
-  wk $ devcomp <- with(wk, 2 * (llsat - llbig))
-  wk $ devres <- with(wk, sign(psat - pbig)*sqrt(devcomp))
-
-  # scale estimate
-  sum(wk $ devcomp)/(nrow(wk)-mod $ rank)
-}
+getScale(ef3, bigmod)
+getScale(ef3, sel1 $ mod)
+start <- sel1 $ chosen
+start[c(14,23)] <- FALSE
+sel2 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.20, start = start)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-sel1 $ mod
-
-#   Loop over adding in covariates seperately for lifestages
-#sel2 <- runSelection(f1s[-1], data = subset(ef3, LifeStage == "Fry"), fn = phiBIC)
-#sel3 <- runSelection(f1s[-1], data = subset(ef3, LifeStage == "Parr"), fn = phiBIC)
-#sel2[[3]]
-#sel3[[3]]
+phiBIC(sel2 $ mod, phi = 2.19)
+getScale(ef3, sel2 $ mod)
+#[1] 2.430373
+start <- sel2 $ chosen
+start[28] <- FALSE
+start[16] <- TRUE
+sel3 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.43, start = start)
+getScale(ef3, sel3 $ mod)
 
 
 #  best model on all data is:
-as.formula(paste0("X ~ ", paste(f1s[sel1 $ chosen], collapse = " + ")))
-#X ~ LifeStage + Trust + fyear + poly(Water_W, 1) + poly(Elevation_,1) + 
-#    poly(Distance_s, 1) + poly(doy, 1) + 
-#    s(totalN, k = 3, by = LifeStage) + s(doy, k = 3, by = LifeStage)
-
+as.formula(paste0("X ~ ", paste(f1s[sel3 $ chosen], collapse = " + ")))
+#X ~ LifeStage + Trust + fyear + poly(Water_W, 1) + poly(Elevation_, 1) +
+#    poly(Distance_s, 1) + s(doy, k = 3, by = LifeStage)
 
 #   Drop terms for importance
-finalfs <- f1s[sel1 $ chosen]
+finalfs <- f1s[sel3 $ chosen]
 forms <- lapply(seq_along(finalfs), function(i) as.formula(paste0("X ~ ", paste(finalfs[-i], collapse = " + ") )))
+dropped <- finalfs
+
+# remove Lifestage completely
+forms[[1]] <- as.formula(paste0("X ~ ", paste(c(finalfs[-c(1,7)], f1s[14]), collapse = " + ")))
+dropped[1] <- "LifeStage"
+
+# drop only lifestage interactions
+forms[[8]] <- as.formula(paste0("X ~ ", paste(c(finalfs[-7], f1s[14]), collapse = " + ")))
+dropped[8] <- "s(doy):LifeStage"
+
+
+
+# fit
 mods <- lapply(forms, efp, data = ef3, passes = "Runs", verbose = FALSE)
 
 m0 <- efp(as.formula(paste0("X ~ ", paste(finalfs, collapse = " + "))), data = ef3, passes = "Runs")    
   
-tab <- cbind(dropped = finalfs, summaryMods(mods, m0 = m0, order = FALSE)[,-1] ) 
+tab <- cbind(dropped = dropped, summaryMods(mods, m0 = m0, order = FALSE, fn = phiBIC, phi = 2.434)[,-1] ) 
 tab[order(tab $ Daic, decreasing = TRUE),]
-#                           dropped      aic         Daic
-#2                            Trust 220956.1 562.01555060
-#1                        LifeStage 220708.0 313.94311487
-#8 s(totalN, k = 3, by = LifeStage) 220554.9 160.84287716
-#9    s(doy, k = 3, by = LifeStage) 220493.0  98.95337701
-#3                            fyear 220468.8  74.74429456
-#6              poly(Distance_s, 1) 220441.4  47.32345352
-#5              poly(Elevation_, 1) 220422.7  28.67079813
-#4                 poly(Water_W, 1) 220401.5   7.45802116
-#7                     poly(doy, 1) 220394.1   0.02171448
-
+#                        dropped      aic       Daic
+#2                         Trust 192200.6 599.121108
+#1                 All LifeStage 191868.5 267.030974
+#7 s(doy, k = 3, by = LifeStage) 191714.5 112.972028
+#3                         fyear 191637.4  35.931798
+#6           poly(Distance_s, 1) 191631.8  30.271694
+#8            s(doy) interaction 191612.9  11.378164
+#5           poly(Elevation_, 1) 191610.1   8.637276
+#4              poly(Water_W, 1) 191607.8   6.294991
 
 # ------------------------------------------------
 # 
@@ -562,15 +597,14 @@ tab[order(tab $ Daic, decreasing = TRUE),]
 # 
 # ------------------------------------------------
 
-best <- efp(X ~ LifeStage + Trust + fyear + 
-                poly(Water_W, 1) + poly(Elevation_,1) + poly(Distance_s, 1) + 
-            s(totalN, k = 3, by = LifeStage) + s(doy, k = 3, by = LifeStage), 
+best <- efp(X ~ LifeStage + Trust + fyear + poly(Water_W, 1) + poly(Elevation_, 1) +
+            poly(Distance_s, 1) + s(doy, k = 3, by = LifeStage), 
             data = ef3, passes = "Runs", hessian = TRUE)    
 
 
 #summary(best)
 best
-
+getScale(ef3, best)
 # constant p model
 base <- efp(X ~ 1, data = ef3, passes = "Runs", hessian = TRUE)
 #base <- efp(X ~ LifeStage, data = ef3, passes = "Runs", hessian = TRUE)
@@ -675,10 +709,4 @@ head(ef4[order(ef4 $ devres.scaled),cols], 20)
 subset(ef4,  totalN > 700)
 
 subset(ef4,  Trust == "Nith")
-
-# ------------------------------------------------
-# 
-#  Plots of effects
-# 
-# ------------------------------------------------
 

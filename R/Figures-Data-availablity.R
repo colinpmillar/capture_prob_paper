@@ -23,8 +23,12 @@ if (Sys.info()["user"] == "Millarc") {
 
 library(spdep)
 coast <- rgdal::readOGR("mapdata", "britisles")[2,]
-load("rData/densmodelData.rData")
+trustpoly <- rgdal::readOGR("mapdata","sa_trust_1110")
 
+# load data
+load("rData/modelData.rData")
+# keep salmon, 3 pass fishings within the covariate bounds
+ef3 <- subset(ef, Runs == 3 & Species == "Salmon" & keep)
 
 {
 png(file = "figures/data_map.png", width = 7, height = 9, units = "in", res = 400)
@@ -32,14 +36,15 @@ png(file = "figures/data_map.png", width = 7, height = 9, units = "in", res = 40
 {
 cols <- hexbin::BTC(nlevels(ef3 $ Trust))
 names(cols) <- levels(ef3 $ Trust)
-cols[c("MSS", "SEPA", "Other")] <- sapply(c("red", "gold3", "darkgreen"), function(x) colorRampPalette(x)(1))
-cols[!names(cols) %in% c("MSS", "SEPA", "Other")] <- hexbin::BTC(nlevels(ef3 $ Trust)-3, end = 150)
+cols[c("MSS", "SEPA")] <- sapply(c("red", "gold3"), function(x) colorRampPalette(x)(1))
+cols[!names(cols) %in% c("MSS", "SEPA")] <- hexbin::BTC(nlevels(ef3 $ Trust)-2, end = 150)
 
 cols1 <- paste0(cols, "77")
 cols2 <- paste0(cols, "DD")
 
 par(mar = c(0,0,0,0))
-  plot(coast, border = grey(0.5), ylim = c(550000, 970000))
+  plot(trustpoly, border = grey(0.5), ylim = c(550000, 970000))
+  #plot(coast, border = grey(0.5), add = TRUE)
   
   for (i in 1:nlevels(ef3 $ Trust)) {
     pdat <- subset(ef3, Trust == levels(Trust)[i]) 
