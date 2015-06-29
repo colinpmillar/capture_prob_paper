@@ -31,14 +31,14 @@ var.names <- names(var.summary)
 
 which <- c("LifeStage", "Trust", "fyear", "Elevation_", "Distance_s", "totalN", 
            "Water_W" ,"doy")
-fullnames <- data.frame(names = c("Lifestage", 
+fullnames <- data.frame(names = c("Life-stage", 
                           "Organisation", 
                           "Year", 
-                          "Altitude", 
-                          "DS", 
+                          "Altitude (m)", 
+                          "Distance to sea (km)", 
                           "SalmonPass1", 
-                          "Width" ,
-                          "DoY"),
+                          "Channel width (m)" ,
+                          "Day of year"),
                         stringsAsFactors = FALSE)
 rownames(fullnames) <- which
 
@@ -201,7 +201,7 @@ png(file = "figures/pmodel_grid.png", width = 7, height = 7, units = "in", res =
 
 ylim <- c(0.33, .8)
 
-par(mar = c(5,2.5,3,1)) # c(bottom, left, top, right)
+par(mar = c(5,3,3,0.5)) # c(bottom, left, top, right)
 
 layout(rbind(c(1,1,2), c(3,4,4), c(5,6,7)))
 
@@ -224,7 +224,7 @@ factorPlot(pdata, xlab = fullnames["LifeStage",], ylim = ylim, labcex = 0.8, yax
 #   DoY predictions of p
 # ----------------------------------------
 pdata <- getPlotData(c("doy", "LifeStage"))
-continuousPlot2(pdata, xlab = "Lifestage x DoY", rug = ef3 $ doy, ylim = ylim, yaxislab = FALSE)
+continuousPlot2(pdata, xlab = "Life-stage x day of year", rug = ef3 $ doy, ylim = ylim, yaxislab = TRUE)
 
 
 #   Year predictions of p

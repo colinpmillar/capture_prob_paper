@@ -2,68 +2,10 @@
 
 
 
-# ------------------------------------------------
-# 
-#  Estimating model DF
-# 
-# ------------------------------------------------
-
-
-if (Sys.info()["user"] == "millaco") {
-  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
-  library(setwidth)
-} else 
-if (Sys.info()["user"] == "millarc") {
-  setwd("C:/work/repos/papers/capture_prop_paper/")
-} else 
-if (Sys.info()["user"] == "Millarc") {
-  setwd("C:/work/repos/papers/capture_prop_paper/")
-}
-
-
-
-load("rData/modelData.rData")
-library(CLmodel)
-library(Rcpp)
-library(rstan)
-
-
-source("R/penalisedSmooth.R")
-
-wk <- subset(ef, Species == "Salmon" & LifeStage == "Fry" & CATCH_ID == 1)
-wk <- subset(wk, T > 0)
-
-
-mod1 <- test(Z ~ s(year) + s(doy), lambda = exp(c(1,1)))
-mod2 <- test(Z ~ s(year) + s(doy), lambda = exp(c(5,1)))
-mod3 <- test(Z ~ s(year) + s(doy), lambda = exp(c(10,1)))
-
-newdat <- data.frame(year = 1996:2013, doy = 200)
-X <- predictX(mod1, newdata = newdat)
-
-plot(newdat $ year, X %*% coef(mod1), type = "l", col = 1)
-lines(newdat $ year, X %*% coef(mod2), col = 2)
-lines(newdat $ year, X %*% coef(mod3), col = 3)
-
-newdat <- data.frame(year = 2010, doy = 150:300)
-X <- predictX(mod1, newdata = newdat)
-
-plot(newdat $ doy, X %*% coef(mod1), type = "l", col = 1)
-lines(newdat $ doy, X %*% coef(mod2), col = 2)
-lines(newdat $ doy, X %*% coef(mod3), col = 3)
-
-
-# lets try and optimise over lambda...
-
-
-
-
-
-
 
 # ------------------------------------------------
 # 
-#  Deviance residuals
+#  Full analysis
 # 
 # ------------------------------------------------
 
@@ -198,7 +140,7 @@ ef $ outliers <- 1:nrow(ef) %in% outliers
 plot(ef $ Di, col = as.numeric(ef $ outliers) + 1)
 
 length(outliers)
-
+# 111
 
 par(mfrow = c(2,1))
 plot(x <- seq(0, 1, length=1000), sapply(x, function(x) 1-mean(pchisq(ef $ Di, 1) > x)), 
@@ -317,13 +259,33 @@ print(1 - pchisq(sum(ef2 $ devcomp), n-npar), 10) # so highly significant overdi
 sum(ef2 $ devcomp)/(nrow(ef2)-bigmod $ rank)
 
 #[1] 2.193646
-
+#[1] 2.198613? newer estimate...
 
 # plot residuals against time and organisation
 lattice::xyplot(devres ~ I(year + doy/365) | Trust, data = ef2, pch = 16, cex = 0.6, grid = TRUE)
 
+# is there correlation accross lifestage
 
+ef2 $ sitevisit <- as.numeric(factor(paste0(ef2 $ Site_OBJECTID, ef2$Date)))
+wk <- subset(ef2, sitevisit %in% which(table(ef2 $ sitevisit) == 2))
+wk2 <- by(wk, wk$sitevisit, function(x) c(x$devres[x$LifeStage == "Fry"], x$devres[x$LifeStage == "Parr"]))
+wk3 <- t(matrix(unlist(wk2), nrow = 2))
+head(wk3)
+plot(wk3, xlab = "Fry residuals", ylab = "Parr residuals", xlim = range(wk3), ylim = range(wk3))
+abline(h = 0, v = 0, col = grey(0.5))
+cov(wk3)
 
+# boostrap distribution of covariance
+cor.sim <- function(...) {
+  ids <- sample(1:nrow(wk3), replace = TRUE)
+  cor(wk3[ids,])[1,2]
+}
+
+scor <- sapply(1:1000, cor.sim)
+hist(scor)
+cis <- 2*mean(scor) - quantile(scor, c(0.975, 0.025))
+# 0.1910985 0.2741948 
+# so there is some correlation between lifestage...
 
 # ------------------------------------------------
 # ------------------------------------------------
@@ -531,27 +493,34 @@ start <- rep(FALSE, length(f1s))
 start[1:24] <- TRUE
 logLik(bigmod)
 getScale(ef3, bigmod)
-if (TRUE) {
+if (FALSE) {
   sel1 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.20, start = start)
   save(sel1, ef3, file = "sel1.rData")
 }
 load("sel1.rData")
 
-getScale(ef3, bigmod)
-getScale(ef3, sel1 $ mod)
-start <- sel1 $ chosen
-start[c(14,23)] <- FALSE
-sel2 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.20, start = start)
+if (FALSE) {
+  getScale(ef3, bigmod)
+  getScale(ef3, sel1 $ mod)
+  start <- sel1 $ chosen
+  start[c(14,23)] <- FALSE
+  sel2 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.20, start = start)
 
 
-phiBIC(sel2 $ mod, phi = 2.19)
-getScale(ef3, sel2 $ mod)
-#[1] 2.430373
-start <- sel2 $ chosen
-start[28] <- FALSE
-start[16] <- TRUE
-sel3 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.43, start = start)
-getScale(ef3, sel3 $ mod)
+  phiBIC(sel2 $ mod, phi = 2.19)
+  getScale(ef3, sel2 $ mod)
+  #[1] 2.430373
+  start <- sel2 $ chosen
+  start[28] <- FALSE
+  start[16] <- TRUE
+  sel3 <- runSelection(f1s, data = ef3, fn = phiBIC, phi = 2.43, start = start)
+  getScale(ef3, sel3 $ mod)
+  # [1] 2.433985
+
+  save(sel3, ef3, file = "sel3.rData")
+}
+load("sel3.rData")
+
 
 
 #  best model on all data is:
@@ -560,6 +529,7 @@ as.formula(paste0("X ~ ", paste(f1s[sel3 $ chosen], collapse = " + ")))
 #    poly(Distance_s, 1) + s(doy, k = 3, by = LifeStage)
 
 #   Drop terms for importance
+#  choose terms to drop
 finalfs <- f1s[sel3 $ chosen]
 forms <- lapply(seq_along(finalfs), function(i) as.formula(paste0("X ~ ", paste(finalfs[-i], collapse = " + ") )))
 dropped <- finalfs
@@ -581,15 +551,18 @@ m0 <- efp(as.formula(paste0("X ~ ", paste(finalfs, collapse = " + "))), data = e
   
 tab <- cbind(dropped = dropped, summaryMods(mods, m0 = m0, order = FALSE, fn = phiBIC, phi = 2.434)[,-1] ) 
 tab[order(tab $ Daic, decreasing = TRUE),]
-#                        dropped      aic       Daic
-#2                         Trust 192200.6 599.121108
-#1                 All LifeStage 191868.5 267.030974
-#7 s(doy, k = 3, by = LifeStage) 191714.5 112.972028
-#3                         fyear 191637.4  35.931798
-#6           poly(Distance_s, 1) 191631.8  30.271694
-#8            s(doy) interaction 191612.9  11.378164
-#5           poly(Elevation_, 1) 191610.1   8.637276
-#4              poly(Water_W, 1) 191607.8   6.294991
+if (FALSE){
+                        dropped      aic      llik df   phi       Daic           Fp
+2                         Trust 192200.6 -95993.78 25 2.434 599.121108 0.000000e+00
+1                     LifeStage 191868.5 -95738.26 46 2.434 267.030974 0.000000e+00
+7 s(doy, k = 3, by = LifeStage) 191714.5 -95665.49 45 2.434 112.972028 0.000000e+00
+3                         fyear 191637.4 -95678.10 33 2.434  35.931798 0.000000e+00
+6           poly(Distance_s, 1) 191631.8 -95611.36 48 2.434  30.271694 5.099405e-10
+8              s(doy):LifeStage 191612.9 -95606.17 47 2.434  11.378164 7.013889e-07
+5           poly(Elevation_, 1) 191610.1 -95600.54 48 2.434   8.637276 3.495075e-05
+4              poly(Water_W, 1) 191607.8 -95599.37 48 2.434   6.294991 1.199766e-04
+}
+
 
 # ------------------------------------------------
 # 

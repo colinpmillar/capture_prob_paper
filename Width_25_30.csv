@@ -1,0 +1,17 @@
+Date,Site.Name,CATCH_ID,DESCRIPTIO,Trust,Upcatch_km,Water_W,Area,Action,Comment
+03/09/2007,up bruar,1,River Tay at mouth,MSS,452.0075,25.8597,167,OK,
+26/08/2011,17980,153,River Ness at mouth,Ness and Beauly,231.4225,25.822942,122,Exclude,Partial river survey
+12/09/2013,22291,153,River Ness at mouth,Ness and Beauly,396.85,28.657076,104,Exclude,Partial river survey
+04/07/2012,19301,324,River Lochy at mouth,Lochaber,11.348,26.541206,81.9,OK,
+07/08/1997,4031,483,Gruinard River at mouth,Wester Ross,149.1625,27.01,76.69,OK,
+17/11/2005,5639,192,River Esragan at mouth,Argyll,13.835,29.1581,99,OK,
+11/10/2002,8940,81,River Shin at mouth,Kyle of Sutherland,575.7675,26.837724,100,Exclude,
+03/10/2007,9200,81,River Shin at mouth,Kyle of Sutherland,575.7675,26.837724,100,Exclude,
+14/07/2003,9811,159,River Cree at mouth,Galloway,367.915,27.9,226.32,OK,
+30/08/2001,12722,313,River Conon at mouth,Conon,4.5975,27.7,33.33,OK,
+06/08/2003,16045,492,River Spey at mouth,Spey,103.625,27.39,120.15,OK,
+27/09/2010,16764,492,River Spey at mouth,Spey,128.495,28.28,280.8,OK,
+23/07/2007,18057,314,River Naver at mouth,Naver,235.6475,26.52,100.5,Exclude,"Suspicious: Main River Naver Achness, left bank just u/s of disused footbridge"
+12/09/2006,18066,314,River Naver at mouth,Naver,235.6475,26.52,100,Exclude,"Suspicious area and : Main River Naver Achness, left bank just u/s of disused footbridge"
+24/08/2011,19240,314,River Naver at mouth,Naver,371.5075,29.44,53.25,Exclude ,"<2.5 metres wide, snapped to wrong location?"
+10/08/2012,491105,46,River Broom at mouth,SEPA,141.775,26.72,140.4,OK,

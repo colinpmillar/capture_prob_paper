@@ -1,0 +1,24 @@
+Date,Site.Name,CATCH_ID,DESCRIPTIO,Trust,Upcatch_km,Water_W,Area,Action,Comments
+12/09/2013,22305,153,River Ness at mouth,Ness and Beauly,394.715,33.29,120,Exclude,Suspicious wetted width of 10
+20/08/1997,4046,252,Little Gruinard River at mouth,Wester Ross,70.365,33.97,56.05,Exclude,Partial survey central section
+10/10/2002,8938,81,River Shin at mouth,Kyle of Sutherland,509.795,30.53,100,Exclude,10m method
+28/07/2005,8941,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,312.38,OK,
+14/09/2006,9068,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,180.6,OK,
+24/08/2007,9144,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,195.6,OK,
+02/10/2007,9196,81,River Shin at mouth,Kyle of Sutherland,509.795,30.53,100,Exclude,10m method
+01/07/2008,9206,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,142,OK,
+13/08/2009,9297,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,138.93,OK,
+02/07/2010,16859,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,237,OK,
+04/07/2011,17678,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,111,OK,
+27/07/2012,19495,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,101,OK,
+04/07/2013,21510,410,River Carron at mouth,Kyle of Sutherland,42.0625,31.9,103,OK,
+01/10/1997,10042,229,River Esk at mouth,Galloway,413.0425,34.32,212.79,OK,
+08/10/1998,10173,229,River Esk at mouth,Galloway,413.0425,34.32,309,OK,
+14/09/1999,10620,229,River Esk at mouth,Galloway,413.0425,34.32,240.84,OK,
+16/07/2002,13898,158,River Tweed at mouth,Tweed,216.684,32.6408,131.45,OK,
+14/07/2005,14088,158,River Tweed at mouth,Tweed,216.684,32.6408,98.17,OK,
+01/07/1998,14694,158,River Tweed at mouth,Tweed,216.684,32.6408,159.77,OK,
+11/08/2010,17346,158,River Tweed at mouth,Tweed,216.684,32.6408,115.19,OK,
+12/09/2003,16121,492,River Spey at mouth,Spey,215.8425,34.86,112.13,OK,
+27/08/2006,18064,314,River Naver at mouth,Naver,422.4925,31.75,100,Exclude,"No info on site, just 100m2 statement"
+05/08/2008,367969,10,River Cassley at mouth,SEPA,157.885,31.49,361.1,OK,

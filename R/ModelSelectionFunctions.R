@@ -15,6 +15,7 @@ summaryMods <- function(lst, m0 = NULL, order = TRUE, fn = phiBIC, phi = 2.11) {
   aics <- sapply(lst, fn, phi = phi)
   lliks <- sapply(lst, logLik) / phi
   dfs <- sapply(lst, function(x) attr(logLik(x), "df"))
+  nobs <- sapply(lst, function(x) attr(logLik(x), "nobs"))
 
   tab <- 
    data.frame(
@@ -27,8 +28,13 @@ summaryMods <- function(lst, m0 = NULL, order = TRUE, fn = phiBIC, phi = 2.11) {
 
   if (!is.null(m0)) {
     tab $ Daic <- tab $ aic - fn(m0, phi = phi)
-    tab $ Chisqp <- 1-pchisq(abs(lliks - logLik(m0)/phi), 
-                           abs(attr(logLik(m0), "df") - dfs))
+
+    kdiff <- abs(attr(logLik(m0), "df") - dfs)
+
+    tab $ Fp <- 1 - pf(2*abs(lliks - logLik(m0)/phi)/kdiff, 
+                           kdiff,
+                           nobs - pmax(attr(logLik(m0), "df"), dfs) - 1)
+
   }
   if (order) tab <- tab[order(aics),]
 

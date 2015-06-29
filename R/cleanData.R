@@ -74,17 +74,37 @@ ef[landuse] <- ef[landuse] / ef $ totlanduse
 
 ef $ Distance_s <- ef $ Distance_s / 1000
 
+
+## remove outliers
+
+# remove some sites!
+getSites <- function(fname) {
+  x <- with(read.csv(fname, stringsAsFactors = FALSE), Site.Name[Action == "Exclude"])
+  paste(x)
+}
+
+remSites <- unlist(lapply(c("UCA500.csv", "Width_25_30.csv", "Width30.csv"), getSites))
+
 # trim data
 ef $ keep <- 
         with(ef, doy > 150 & doy < 325 & 
                  year >= 1997 & year <= 2013 & 
                  Area < 5000 &
+                 #Species == "Salmon" & LifeStage == "Fry" &
                  Water_W < 35 & 
                  Elevation_ < 500 &  
                  sinSlope < 0.4 & 
-                 Upcatch_km < 600 # &
+                 Upcatch_km < 600  &
+                 !Site.Name %in% remSites# & 
                  #!barrier
             )
 
 save(ef, file = "rData/modelData.rData")
 }
+
+
+
+
+
+
+

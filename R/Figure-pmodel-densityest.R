@@ -140,8 +140,8 @@ library(gplots)
 
 data(redctm)
 data(hma)
-redctm <- redctm[redctm $ CATCH_ID %in% ef $ CATCH_ID,]
-hma <- hma[hma $ HACode %in% ef $ HACode,]
+redctm <- redctm[redctm $ CATCH_ID %in% ef3 $ CATCH_ID,]
+hma <- hma[hma $ HACode %in% ef3 $ HACode,]
 
 hma @ bbox <- bbox(redctm)
 hma @ bbox[4] <- 1100000
@@ -163,30 +163,191 @@ alldat $ fit3 <- with(alldat, T / (Area * (1 - (1-psat)^Runs)))
 alldat $ fitcp <- alldat $ fit2 / alldat $ fit1
 alldat $ fitsp <- alldat $ fit3 / alldat $ fit1
 
+
+
+#
+##
+##   2nd attempt using hex bins
+##
+#
+
+
+library(hexbin)
+# make a grid of predictions
+
+
+# set up bins
+dat <- hexbin(ef3 $ NEAR_X, ef3 $ NEAR_Y, xbins = 40, IDs = TRUE, shape = 1.5)
+xbins <- dat@xbins
+shape <- dat@shape
+tmp <- hcell2xy(dat, check.erosion = TRUE)
+cnt <- dat@count
+sx <- xbins/diff(dat@xbnds)
+sy <- (xbins * shape)/diff(dat@ybnds)
+inner <- 0.5
+outer <- (2 * inner)/sqrt(3)
+dx <- inner/sx
+dy <- outer/(2 * sy)
+rad <- sqrt(dx^2 + dy^2)
+hexC <- hexcoords(dx, dy, sep = NULL)
+
+
+
+
 {
-
 png("figures/pmodel-densityMaps.png", width = 9, height = 6, res = 500, units = "in")
-
-nbreaks <- 10
-x <- c(alldat $ fitcp) 
-nb <- as.integer(nbreaks + 1)
-dx <- diff(rx <- range(x))
-breaks <- seq.int(rx[1L], rx[2L], length.out = nb)
-breaks[c(1L, nb)] <- c(rx[1L] - dx/1000, rx[2L] + dx/1000)
-
-cols <- rev(rich.colors(nbreaks))
-
-alldat $ colgrpcp <- as.numeric(cut(alldat $ fitcp, breaks = breaks))
-colcp <- cols[alldat $ colgrpcp]
-
 par(mfrow = c(1,2), mar = c(0,0,0,0))
 
-plot(hma, border = grey(0.7))
-plot(redctm, border = grey(0.8), add = TRUE)
-with(alldat, {
-  points(NEAR_X, NEAR_Y, col = colcp, pch = 16)
-  points(NEAR_X, NEAR_Y, col = colcp, pch = 1)
-})
+coast @ bbox <- bbox(redctm)
+coast @ bbox[3] <- 440000
+coast @ bbox[4] <- 1100000
+
+# set up breaks
+breaks <- seq(0.83, 1.17, by = 0.02)
+nbreaks <- length(breaks) - 1
+
+# set up colours
+cols <- colorRampPalette(c(rich.colors(5)[5], rich.colors(5)[4], "white", rich.colors(5)[2], rich.colors(5)[1]))(nbreaks)
+cols[length(cols)/2+0.5] <- rich.colors(15)[8]
+
+# assign colours to cells
+means <- tapply(alldat $ fitcp, dat@cID, mean)
+range(means)
+colgrpcp <- as.numeric(cut(means, breaks = breaks))
+colcp <- cols[colgrpcp]
+table(factor(colgrpcp, levels = 1:nbreaks))
+
+
+# do plot 1
+plot(coast, border = grey(0.7))
+for (i in 1:dat@ncells) {
+  polygon(hexC$x + tmp $ x[i], hexC$y + tmp $ y[i], col = colcp[i], border = grey(0.8))
+}
+
+if (FALSE) {
+  # now for legend
+  x0 <- 421799; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
+  val <- breaks
+  val <- sprintf("%.2f", rev(val))
+  for (i in 1:nbreaks-1) {
+    polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1]) 
+  }
+  text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 1, cex = 0.8, adj = 0)
+} else {
+  # now for legend
+  x0 <- 440000; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
+  val <- breaks
+  val <- sprintf("%.2f", rev(val))
+  for (i in 1:nbreaks-1) {
+    polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1]) 
+  }
+  text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 1, cex = 0.8, adj = 0)  
+  tabval <- rev(table(factor(colgrpcp, levels = 1:nbreaks)))
+  tabval[tabval == 0] <- ""
+  text(x0 - 0.1*dx, y0 - 1:nbreaks*dy + dy/2, tabval, font = 1, cex = 0.8, adj = 1)  
+}
+
+
+
+
+
+# set up breaks
+breaks1 <- seq(0.83, 1.17, by = 0.02)
+nbreaks1 <- length(breaks1) - 1
+# tag on high values
+breaks2 <- c(1.17, 1.25, 1.5, 2, 3, 4)
+nbreaks2 <- length(breaks2) - 1
+
+breaks <- c(breaks1, breaks2[-1])
+nbreaks <- length(breaks) - 1
+
+# set up colours
+cols1 <- colorRampPalette(c(rich.colors(5)[5], rich.colors(5)[4], "white", rich.colors(5)[2], rich.colors(5)[1]))(nbreaks1)
+cols1[length(cols1)/2+0.5] <- rich.colors(15)[8]
+
+cols2 <- colorRampPalette(c("purple", "hotpink"))(nbreaks2)
+
+cols <- c(cols1, cols2)
+
+
+# assign colours to cells
+alldat $ fitsp_noInf <- alldat $ fitsp
+alldat $ fitsp_noInf[alldat $ fitsp_noInf > 1e6] <- NA
+means <- tapply(alldat $ fitsp_noInf, dat@cID, mean, na.rm = TRUE)
+means[is.nan(means)] <- NA
+range(means, na.rm = TRUE)
+colgrpsp <- as.numeric(cut(means, breaks = breaks))
+colsp <- cols[colgrpsp]
+table(colgrpsp)
+
+
+# do plot 2
+plot(coast, border = grey(0.7))
+for (i in 1:dat@ncells) {
+  polygon(hexC$x + tmp $ x[i], hexC$y + tmp $ y[i], col = colsp[i], border = grey(0.8))
+}
+
+
+
+if (FALSE) {
+  # now for legend
+  #x0 <- 421799; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
+  y0 <- y0 + dy*nbreaks2
+  val <- breaks
+  val <- sprintf("%.2f", rev(val))
+  for (i in 1:nbreaks-1) {
+    polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1]) 
+  }
+  text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 1, cex = 0.8, adj = 0)
+} else {
+  # now for legend
+  #x0 <- 440000; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
+  y0 <- y0 + dy*nbreaks2
+  val <- breaks
+  val <- sprintf("%.2f", rev(val))
+  for (i in 1:nbreaks-1) {
+    polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1]) 
+  }
+  text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 1, cex = 0.8, adj = 0)  
+  tabval <- rev(table(factor(colgrpsp, levels = 1:nbreaks)))
+  tabval[tabval == 0] <- ""
+  text(x0 - 0.1*dx, y0 - 1:nbreaks*dy + dy/2, tabval, font = 1, cex = 0.8, adj = 1)  
+}
+
+
+mtext(c("a","b"), side = 3, line = -4, outer = TRUE, font = 2, at = c(0, 0.5) + 0.05)
+dev.off()
+}
+
+
+
+
+
+
+## a plot of data coverage
+# set up breaks
+breaks <- c(0,1,2,5,10,20,40,60,90)
+nbreaks <- length(breaks) - 1
+
+# set up colours
+cols <- colorRampPalette(c("purple", "cyan"))(nbreaks)
+cols <- topo.colors(nbreaks)
+
+# assign colours to cells
+means <- table(dat@cID)
+range(means)
+colgrpcp <- as.numeric(cut(means, breaks = breaks))
+colcp <- cols[colgrpcp]
+table(colgrpcp)
+
+
+# do plot 1
+coast @ bbox <- bbox(redctm)
+coast @ bbox[4] <- 1100000
+plot(coast, border = grey(0.7))
+for (i in 1:dat@ncells) {
+  polygon(hexC$x + tmp $ x[i], hexC$y + tmp $ y[i], col = colcp[i], border = grey(0.8))
+}
 
 # now for legend
 x0 <- 421799; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
@@ -195,13 +356,72 @@ val <- sprintf("%.2f", rev(val))
 for (i in 1:nbreaks-1) {
 polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1])
 }
+text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 1, cex = 1, adj = 0)
+
+
+
+
+
+
+
+
+#
+##
+##  Old attempt
+##
+#
+
+
+if (FALSE) {
+
+png("figures/pmodel-densityMaps.png", width = 9, height = 6, res = 500, units = "in")
+
+nbreaks <- 14
+x <- c(alldat $ fitcp) 
+nb <- as.integer(nbreaks + 1)
+rx <- range(x)
+rx <- 1 + c(-1,1)*max(abs(rx - 1))
+rx <- c(0.65, 1.35)
+dx <- diff(rx)
+breaks <- seq.int(rx[1L], rx[2L], length.out = nb)
+breaks[c(1L, nb)] <- c(rx[1L] - dx/1000, rx[2L] + dx/1000)
+
+cols <- rev(rich.colors(nbreaks))
+
+alldat $ colgrpcp <- as.numeric(cut(alldat $ fitcp, breaks = breaks))
+alldat $ colcp <- cols[alldat $ colgrpcp]
+table(alldat $ colgrpcp)
+
+par(mfrow = c(1,2), mar = c(0,0,0,0))
+
+plot(hma, border = grey(0.7))
+plot(redctm, border = grey(0.8), add = TRUE)
+ord <- order(abs(alldat $ fitcp - 1), decreasing = FALSE)
+cex <- 0.7
+with(alldat[ord,], {
+  points(NEAR_X, NEAR_Y, col = paste0(substring(colcp,1,7), "55"), pch = 16, cex = cex)
+})
+with(alldat[ord,], {
+  points(NEAR_X, NEAR_Y, col = paste0(substring(colcp,1,7), "AA"), pch = 1, cex = cex)
+})
+
+
+# now for legend
+x0 <- 421799; y0 <- 947168; dx <- 22000; dy <- 300000/nbreaks
+val <- breaks
+val <- sprintf("%.2f", rev(val))
+startb <- 6
+for (i in startb:nbreaks-1) {
+polygon(x0 + c(0, dx)[c(1,2,2,1)], y0 - i*dy + c(0, -dy)[c(1,1,2,2)], col = rev(cols)[i+1])
+}
+val[1:(startb-1)] <- ""
 text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 2, cex = 1, adj = 0)
 
 
 
-nbreaks <- 10
+nbreaks <- 20
 nb <- as.integer(nbreaks + 1)
-dx <- diff(rx <- c(0.5, 2))
+dx <- diff(rx <- c(0, 2))
 breaks <- seq.int(rx[1L], rx[2L], length.out = nb)
 breaks[c(1L, nb)] <- c(rx[1L] - dx/1000, rx[2L] + dx/1000)
 breaks[1] <- 0
@@ -214,9 +434,14 @@ colsp <- cols[alldat $ colgrpsp]
 
 plot(hma, border = grey(0.7))
 plot(redctm, border = grey(0.8), add = TRUE)
-with(alldat, {
-  points(NEAR_X, NEAR_Y, col = colsp, pch = 16)
-  points(NEAR_X, NEAR_Y, col = colsp, pch = 1)
+
+ord <- order(abs(alldat $ fitsp - 1), decreasing = FALSE)
+cex <- 0.7
+with(alldat[ord,], {
+  points(NEAR_X, NEAR_Y, col = paste0(substring(colsp,1,7), "55"), pch = 16, cex = cex)
+})
+with(alldat[ord,], {
+  points(NEAR_X, NEAR_Y, col = paste0(substring(colsp,1,7), "AA"), pch = 1, cex = cex)
 })
 
 # now for legend
@@ -233,4 +458,3 @@ text(x0 + 1.1*dx, y0 - 0:nbreaks*dy, val, font = 2, cex = 1, adj = 0)
 dev.off()
 
 }
-
