@@ -66,6 +66,7 @@ ef $ CATCH_ID <- factor(ef $ CATCH_ID)
 
 ef $ fyear <- factor(ef $ year)
 ef $ sinSlope <- sin(ef $ Slope_deg/180*pi)
+ef $ logGradient <- log(tan(ef $ Slope_deg / 180 * pi))
 
 landuse <- c("CTrees", "Urban", "NCTrees", "Mixed", "Marsh", "Other")
 ef $ totlanduse <- rowSums(ef[landuse])
