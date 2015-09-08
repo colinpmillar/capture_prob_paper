@@ -143,3 +143,31 @@ tmp <- unique(ef[!names(ef) %in% c("sampleID","Area","Date","fyear","T","X","Z",
                          "doy","LifeStage","pass","pass23","n","Runs","Width","Site.Name")])
 
 tail(tmp[order(tmp$ Water_W),], 20)
+
+
+# data for Karen
+
+db <- "B:/Conservation_Limits/CL_Juvenile_Density/CollateData/db/scottishEF_CLROAME_v01.sqlite3"
+con <- DBI::dbConnect(RSQLite::SQLite(), db)
+# get data
+ef <- DBI::dbReadTable(con, "ef")
+DBI::dbDisconnect(con)
+
+ef <- subset(ef, !Dataset %in% c("sfcc","sepa","caithness"))
+ef <- ef[c("Site_OBJECTID", "Site.Name", "Dataset", "Date")]
+
+ef <- ef[!is.na(ef $ Site_OBJECTID),]
+
+# get site info
+con <- DBI::dbConnect(RSQLite::SQLite(), db)
+gis <- DBI::dbReadTable(con, "gis"); DBI::dbDisconnect(con)
+
+# tag on site info data
+ef <- cbind(ef, gis[ef $ Site_OBJECTID,])
+
+uef <- unique(ef[c("Site_OBJECTID", "Site.Name", "Dataset", "NEAR_X", "NEAR_Y")])
+dim(uef)
+
+head(uef, 50)
+write.csv(uef, file = "sitesForKaren.csv")
+
