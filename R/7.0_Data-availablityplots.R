@@ -38,24 +38,30 @@ ef <- subset(ef, Runs > 2 & Species == "Salmon" & keep & Trust != "Nith")
 
 ef3 <- ef
 ef3 $ Trust <- factor(ef3 $ Trust)
+levs <- c("MSS", "SEPA", levels(ef3$Trust)[!levels(ef3$Trust) %in% c("MSS", "SEPA")])
+ef3 $ Trust <- factor(ef3 $ Trust, levels = levs) 
+
 
 {
 png(file = "figures/data_map.png", width = 13, height = 7, units = "in", res = 400)
 
 
 #cols <- hexbin::BTC(5)
-cols <- substring(rep(gplots::rich.colors(6), each = 4), 1, 7)
+#cols <- rep(gplots::rich.colors(6), each = 4)
+cols <- rep(RColorBrewer::brewer.pal(6, "Dark2"), each = 4)
+#cols <- rep(c("indianred1", "orange", "chartreuse", "deepskyblue", "darkmagenta", "grey07"), each = 4)
 pch <- rep(c(1, 2, 5, 6), 6)
 
 colsym <- data.frame(Trust = levels(ef3 $ Trust),
                      pch = pch,
                      col = cols,
-                     cex = 0.7)
+                     cex = 0.7,
+                     stringsAsFactors = FALSE)
 rownames(colsym) <- colsym $ Trust
 
 colsym[c("MSS","SEPA"),"pch"] <- c(15,16)
-colsym[c("MSS","SEPA"),"cex"] <- c(0.9, 0.9)
-
+colsym[c("MSS","SEPA"),"cex"] <- c(1, 1)
+colsym[c("MSS","SEPA"),"col"] <- 1
 
 par(mar = c(0,0,0,0), mfrow = c(1,2))
 
@@ -72,9 +78,8 @@ plot(hma, border = 1, add = TRUE)
   plot(trustpoly, border = grey(0.5), add = TRUE)
   #plot(coast, border = grey(0.5), add = TRUE)
   
-  for (i in 1:nlevels(ef3 $ Trust)) {
-    levels(ef3 $ Trust)[i] %in% c("MSS", "SEPA")
-    pdat <- subset(ef3, Trust == levels(Trust)[i]) 
+  for (i in 1:nrow(colsym)) {
+    pdat <- subset(ef3, Trust == colsym$Trust[i]) 
     pdat <- unique(pdat[c("NEAR_Y", "NEAR_X")])
     points(pdat $ NEAR_X, pdat $ NEAR_Y, 
            pch = colsym $ pch[i], col = colsym $ col[i], 

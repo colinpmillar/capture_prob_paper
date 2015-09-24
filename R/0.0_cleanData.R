@@ -56,7 +56,7 @@ ef $ Trust <- as.character(ef $ Trust)
 ef $ Trust[ef $ Trust == "Youngson"] <- "Other"
 ef $ Trust[ef $ Trust == "Walker"] <- "MSS"
 
-trustnames <- read.csv("trust_names.csv", stringsAsFactors = FALSE)
+trustnames <- read.csv("additional_data/trust_names.csv", stringsAsFactors = FALSE)
 rownames(trustnames) <- trustnames $ code
 bool <- ef $ Trust %in% c("MSS", "Other", "SEPA")
 ef $ Trust[!bool] <- trustnames[ef $ Trust[!bool],"Trust"]
@@ -80,7 +80,7 @@ ef $ Distance_s <- ef $ Distance_s / 1000
 
 # remove some sites!
 getSites <- function(fname) {
-  x <- with(read.csv(fname, stringsAsFactors = FALSE), Site.Name[Action == "Exclude"])
+  x <- with(read.csv(paste0("additional_data/",fname), stringsAsFactors = FALSE), Site.Name[Action == "Exclude"])
   paste(x)
 }
 

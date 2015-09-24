@@ -13,3 +13,4 @@ vignettes/*.html
 vignettes/*.pdf
 captureProbabilityPaper.sublime-workspace
 captureProbabilityPaper.sublime-project
+.Rproj.user

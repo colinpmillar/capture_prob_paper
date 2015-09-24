@@ -41,6 +41,8 @@ ef $ sampleID <- as.numeric(factor(with(ef,
                   paste0(Trust,
                          strReverse(Date), 
                          Site_OBJECTID))))
+ef[sapply(ef, is.factor)] <- lapply(ef[sapply(ef, is.factor)], as.character)
+
 
 # gather
 ef <- tidyr::gather(ef, pass, n, n_R1:n_R3)
@@ -70,23 +72,27 @@ ef <- subset(ef, !(Date == "13/09/2002" & Site_OBJECTID == 1527))
 ef <- subset(ef, !(Date == "13/09/2002" & Site_OBJECTID == 4004))
 ef <- subset(ef, !(Date == "27/09/2004" & Site_OBJECTID == 1955))
 ef <- subset(ef, !(Date == "03/08/2006" & Site_OBJECTID == 2626))
+ef <- subset(ef, Trust != "Nith")
 ef <- subset(ef, keep)
 
 
 # some summaries
 sum(tapply(ef$n, ef$sampleID, sum) >= 0)
-# 4333 samples in total
+# 4332 samples in total
 sum(tapply(ef$n, ef$sampleID, sum) > 0)
-# of which 2838 had some fish
+# of which 2837 had some fish
 
 length(unique(ef $ Site_OBJECTID))
-# 2179 unique sites
+# 2178 unique sites
 length(unique(ef $ Site_OBJECTID[ef $ sampleID %in% names(tapply(ef$n, ef$sampleID, sum)[tapply(ef$n, ef$sampleID, sum) > 0])]))
-# 1451 unique sites with non-zero samples
+# 1450 unique sites with non-zero samples
 
 
 # remove samples with zero counts
 ef <- subset(ef, sampleID %in% names(tapply(n, sampleID, sum)[tapply(n, sampleID, sum) > 0]))
+
+save(ef, file = "intermediate_rData/screenedData.rData")
+
 
 # how many samples have one lifestage with zeros?
 sum(tapply(ef$n, list(ef$sampleID, ef $ LifeStage), sum) == 0)
@@ -94,7 +100,7 @@ sum(tapply(ef$n, list(ef$sampleID, ef $ LifeStage), sum) == 0)
 
 # some covariate summaries
 length(unique(ef $ Trust))
-# 25
+# 24
 length(unique(ef $ HACode))
 # 44
 
@@ -175,6 +181,55 @@ mean(p.adjust(1-pchi, "BH") < 0.01)
 
 mean(p.adjust(1-pchi, "holm") < 0.05)
 mean(p.adjust(1-pchi, "holm") < 0.01)
+# but I think we can leave all points in.
 
-save(ef, file = "intermediate_rData/screenedData.rData")
+# ------------------------------------------------------------------------------
+#
+# look at the range of covariates
+#
+# ------------------------------------------------------------------------------
+
+wk <- dplyr::select(ef, Distance_s, Elevation_, Upcatch_km, Water_W)
+
+
+head(as.data.frame(subset(ef, Water_W == 0 & pass == 1)))
+
+wk <- as.data.frame(subset(ef, Upcatch_km < 0.1 & pass == 1 & LifeStage == "Fry"))
+wk
+length(unique(wk$Site_OBJECTID))
+
+
+hist(ef $ Water_W[ef $ Water_W > 0], breaks = 0:35 + 0.5, probability = TRUE, 
+     ylim = c(0, 0.16), xlab = "Channel width (m)", main = "Distribution of Channel widths")
+polygon(c(-1,1,1,-1)*0.5, rep(c(0,mean(ef $ Water_W == 0)), each = 2), col = grey(0.7))
+
+
+hist(log(ef $ Upcatch_km), nclass = 50, probability = TRUE, 
+     xlab = "Upstream catchment area (km²)", 
+     main = "Distribution of Upstream catchment areas")
+
+
+
+wk <- as.data.frame(subset(ef, grepl("mb", Site.Name)))
+wk <- unique(wk[c("Site.Name", "Elevation_", "Water_W", "Width", "Upcatch_km", "NEAR_X", "NEAR_Y")])
+wk
+
+pts <- wk[c("NEAR_X", "NEAR_Y")]
+
+stretch <- function(x, by = 1) {
+  dx <- diff(range(x)) * by
+  c(min(x) - dx * 0.5, max(x) + dx*0.5)
+}
+
+library(sp)
+library(CLdata)
+data(redrivs)
+
+zoom <- 10000
+plot(pts, xlim = stretch(pts[[1]], zoom), ylim = stretch(pts[[2]], zoom/10), col = "red", pch = 16)
+plot(redrivs, add = TRUE)
+plot(redctm, add = TRUE, border = "brown", lwd = 2)
+
+plot(redrivs)
+points(pts)
 

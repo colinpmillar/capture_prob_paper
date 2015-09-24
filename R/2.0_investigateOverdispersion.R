@@ -1,3 +1,5 @@
+
+
 if (Sys.info()["user"] == "millaco") {
   setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
   library(setwidth)
@@ -125,19 +127,11 @@ m <- bigmod $ df.null - bigmod $ df.residual
 2 * (sum(llsat) - sum(llsample)) / (3*N - m)
 # 1.389
 
-phi <- 2 * (sum(llsample) - logLik(bigmod)) / N
+## between sample overdispersion
+phi <- as.numeric(2 * (sum(llsample) - logLik(bigmod)) / N)
 phi
-# 2.981 - slightly larger than last time
+# 2.982 - slightly larger than last time
 
-# and check for overdispersion
-npar <- bigmod $ rank
-print(1 - pchisq(sum(ef2 $ devcomp), n-npar), 10) # so highly significant overdispersion
-
-# scale estimate
-sum(ef2 $ devcomp)/(nrow(ef2)-bigmod $ rank)
-
-#[1] 2.193646
-#[1] 2.198613? newer estimate...
 
 save(phi, file = "intermediate_rData/phi.rData")
 
