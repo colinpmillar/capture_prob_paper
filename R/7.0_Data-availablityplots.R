@@ -3,12 +3,12 @@
 
 
 if (Sys.info()["user"] == "millaco") {
-  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")    
+  setwd("~/Dropbox/SarahColin/PhD/capture_prob_paper")
   library(setwidth)
-} else 
+} else
 if (Sys.info()["user"] == "millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
-} else 
+} else
 if (Sys.info()["user"] == "Millarc") {
   setwd("C:/work/repos/papers/capture_prop_paper/")
 }
@@ -16,7 +16,7 @@ if (Sys.info()["user"] == "Millarc") {
 
 
 #############################################################
-#   
+#
 #   map of usable data
 #
 #############################################################
@@ -39,11 +39,12 @@ ef <- subset(ef, Runs > 2 & Species == "Salmon" & keep & Trust != "Nith")
 ef3 <- ef
 ef3 $ Trust <- factor(ef3 $ Trust)
 levs <- c("MSS", "SEPA", levels(ef3$Trust)[!levels(ef3$Trust) %in% c("MSS", "SEPA")])
-ef3 $ Trust <- factor(ef3 $ Trust, levels = levs) 
+ef3 $ Trust <- factor(ef3 $ Trust, levels = levs)
 
 
 {
-png(file = "figures/data_map.png", width = 13, height = 7, units = "in", res = 400)
+#png(file = "figures/data_map.png", width = 13, height = 7, units = "in", res = 400)
+png(file = "C:/work/Dropbox/CaptureProbPaper/resubmission/Figure1.png", width = 13, height = 7, units = "in", res = 400)
 
 
 #cols <- hexbin::BTC(5)
@@ -70,27 +71,27 @@ library(CLdata)
 data(hma)
 data(redctm)
 
-plot(redctm, border = grey(0.7), ylim = c(550000, 970000))
+plot(redctm, border = grey(0.4), ylim = c(550000, 970000))
 plot(hma, border = 1, add = TRUE)
 
 
   plot(redctm, border = "transparent", ylim = c(550000, 970000))
   plot(trustpoly, border = grey(0.5), add = TRUE)
   #plot(coast, border = grey(0.5), add = TRUE)
-  
+
   for (i in 1:nrow(colsym)) {
-    pdat <- subset(ef3, Trust == colsym$Trust[i]) 
+    pdat <- subset(ef3, Trust == colsym$Trust[i])
     pdat <- unique(pdat[c("NEAR_Y", "NEAR_X")])
-    points(pdat $ NEAR_X, pdat $ NEAR_Y, 
-           pch = colsym $ pch[i], col = colsym $ col[i], 
+    points(pdat $ NEAR_X, pdat $ NEAR_Y,
+           pch = colsym $ pch[i], col = colsym $ col[i],
            cex = colsym $ cex[i])
   }
 
 # legend
   x0 <- -6000.456; y0 <- 840253.2; dx <- 22000; dy <- -300000/25
   y0 <- y0 + dy*25
-  points(rep(x0, 24), y0 - 24:1*dy, cex = colsym$cex, pch = colsym$pch, col = colsym$col, xpd = NA) 
-  text(x0 + 0.4*dx, y0 - 24:1*dy, colsym $ Trust, font = 1, cex = 1.1, adj = 0, xpd = NA) 
+  points(rep(x0, 24), y0 - 24:1*dy, cex = colsym$cex, pch = colsym$pch, col = colsym$col, xpd = NA)
+  text(x0 + 0.4*dx, y0 - 24:1*dy, colsym $ Trust, font = 1, cex = 1.1, adj = 0, xpd = NA)
 
  mtext(c("a","b"), side = 3, line = -4, outer = TRUE, font = 2, at = c(0, 0.5) + 0.05, cex = 2)
 
